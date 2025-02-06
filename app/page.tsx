@@ -1,4 +1,3 @@
-// app/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -10,11 +9,17 @@ import {
   TestTube2,
   ChevronLeft,
   ChevronRight,
+  Github,
+  Mail,
+  Twitter,
+  Sparkles,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
+import { LoginDialog } from "@/components/home/LoginDialog";
 
 const FURNITURE_SHOWCASE = [
   {
@@ -56,9 +61,9 @@ const FURNITURE_SHOWCASE = [
 
 export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isTesting, setIsTesting] = useState(false);
-  const [testResult, setTestResult] = useState<string | null>(null);
   const [isPaused, setIsPaused] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [loginRedirect, setLoginRedirect] = useState("");
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -81,11 +86,16 @@ export default function Home() {
     );
   };
 
+  const handleLoginClick = (redirectPath: string) => {
+    setLoginRedirect(redirectPath);
+    setShowLogin(true);
+  };
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950">
       <div className="container mx-auto px-4 py-8 relative">
-        <div className="flex flex-col items-center justify-center gap-8">
-          {/* Hero Section */}
+        <div className="flex flex-col items-center justify-center gap-12">
+          {/* Hero Section with Carousel */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -103,14 +113,6 @@ export default function Home() {
             >
               Transform your living space with our innovative AI-powered
               furniture design solutions
-            </motion.p>
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
-              className="text-lg text-zinc-400 mt-4"
-            >
-              A product by Murphy Al Saham
             </motion.p>
           </motion.div>
 
@@ -191,36 +193,37 @@ export default function Home() {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-6">
-            <Link href="/wallbedlogin">
-              <Button
-                size="lg"
-                className="group bg-gradient-to-r from-pink-600 to-pink-500 hover:from-pink-500 hover:to-pink-400 text-white px-8 py-6 text-lg rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-pink-500/20"
-              >
-                <Bed className="mr-2 h-6 w-6" />
-                Design Custom Wallbed
-                <ArrowRight className="ml-2 h-6 w-6 transition-transform group-hover:translate-x-1" />
-              </Button>
-            </Link>
-            <Link href="/chatlogin">
-              <Button
-                size="lg"
-                variant="outline"
-                className="group border-2 border-pink-500/20 bg-black text-white  px-8 py-6 text-lg rounded-xl transition-all duration-300 transform hover:scale-105 backdrop-blur-sm"
-              >
-                <MessageSquare className="mr-2 h-6 w-6" />
-                Chat to Design any Furniture
-                <ArrowRight className="ml-2 h-6 w-6 transition-transform group-hover:translate-x-1" />
-              </Button>
-            </Link>
+          <div className="flex flex-col sm:flex-row gap-6 w-full max-w-[1400px] justify-center">
+            <motion.button
+              whileHover={{ scale: 1.05, rotate: -1 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => handleLoginClick("/wallbed")}
+              className="w-full sm:w-auto group relative overflow-hidden bg-gradient-to-r from-pink-600 to-pink-500 hover:from-pink-500 hover:to-pink-400 text-white px-12 py-8 text-xl rounded-[2rem] shadow-lg hover:shadow-pink-500/20 font-semibold flex items-center justify-center gap-3"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-pink-400/20 to-transparent transform rotate-45 translate-x-[-50%] translate-y-[-50%] transition-transform group-hover:translate-x-[200%] group-hover:translate-y-[200%]" />
+              <Bed className="h-7 w-7" />
+              Design Custom Wallbed
+              <ArrowRight className="h-7 w-7 transition-transform group-hover:translate-x-1" />
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05, rotate: 1 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => handleLoginClick("/chat")}
+              className="w-full sm:w-auto group relative overflow-hidden border-3 border-pink-500/20 bg-black/50 text-white px-12 py-8 text-xl rounded-[2rem] backdrop-blur-sm font-semibold hover:bg-pink-500/10 flex items-center justify-center gap-3"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-pink-400/10 to-transparent transform rotate-45 translate-x-[-50%] translate-y-[-50%] transition-transform group-hover:translate-x-[200%] group-hover:translate-y-[200%]" />
+              <MessageSquare className="h-7 w-7" />
+              Chat to Design any Furniture
+              <ArrowRight className="h-7 w-7 transition-transform group-hover:translate-x-1" />
+            </motion.button>
           </div>
 
-          {/* Features Section */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
+          {/* Features Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-[1400px]">
             {[
               {
                 icon: <Bed className="h-8 w-8 text-pink-400" />,
-                title: "Space Saving Solutions",
+                title: "Space-Saving Solutions",
                 description:
                   "Transform your living space with our innovative wall beds and multi-functional furniture.",
               },
@@ -236,26 +239,125 @@ export default function Home() {
                 description:
                   "Get personalized recommendations from our AI-powered furniture expert.",
               },
+              {
+                icon: <Sparkles className="h-8 w-8 text-yellow-400" />,
+                title: "AI-Powered Innovation",
+                description:
+                  "Experience cutting-edge AI technology that brings your furniture dreams to life.",
+              },
+              {
+                icon: <Shield className="h-8 w-8 text-emerald-400" />,
+                title: "Quality Assurance",
+                description:
+                  "Every design is crafted to meet the highest standards of functionality and aesthetics.",
+              },
+              {
+                icon: <MessageSquare className="h-8 w-8 text-blue-400" />,
+                title: "24/7 Support",
+                description:
+                  "Get assistance anytime with our dedicated support team and AI-powered chat system.",
+              },
             ].map((feature, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 + index * 0.1 }}
-                className="p-6 bg-gradient-to-br from-zinc-800/50 to-zinc-900/50 backdrop-blur-sm rounded-xl shadow-lg hover:shadow-pink-500/5 transition-all duration-300 border border-pink-500/10"
+                whileHover={{
+                  scale: 1.05,
+                  rotateY: 10,
+                  translateZ: 20,
+                }}
+                className="p-8 bg-gradient-to-br from-zinc-800/50 to-zinc-900/50 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-pink-500/5 transition-all duration-300 border border-pink-500/10 transform perspective-1000 group"
               >
                 <div className="flex flex-col items-center text-center gap-4">
-                  {feature.icon}
-                  <h3 className="text-xl font-semibold text-white">
+                  <motion.div
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.5 }}
+                    className="p-3 rounded-full bg-gradient-to-br from-pink-500/10 to-transparent"
+                  >
+                    {feature.icon}
+                  </motion.div>
+                  <h3 className="text-2xl font-semibold text-white group-hover:text-pink-300 transition-colors">
                     {feature.title}
                   </h3>
-                  <p className="text-zinc-300">{feature.description}</p>
+                  <p className="text-zinc-300 text-lg group-hover:text-white transition-colors">
+                    {feature.description}
+                  </p>
                 </div>
               </motion.div>
             ))}
           </div>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="mt-24 border-t border-pink-500/10 bg-gradient-to-b from-zinc-900 to-zinc-950">
+        <div className="container mx-auto px-4 py-12">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="space-y-4">
+              <h3 className="text-xl font-bold text-white">
+                AI Furniture Designer
+              </h3>
+              <p className="text-zinc-400">
+                Transform your living space with AI-powered furniture design
+                solutions.
+              </p>
+            </div>
+            <div className="space-y-4">
+              <h4 className="text-lg font-semibold text-white">Products</h4>
+              <ul className="space-y-2 text-zinc-400">
+                <li>Wall Beds</li>
+                <li>Kitchen Cabinets</li>
+                <li>Dressing Tables</li>
+                <li>Custom Furniture</li>
+              </ul>
+            </div>
+            <div className="space-y-4">
+              <h4 className="text-lg font-semibold text-white">Company</h4>
+              <ul className="space-y-2 text-zinc-400">
+                <li>About Us</li>
+                <li>Contact</li>
+                <li>Privacy Policy</li>
+                <li>Terms of Service</li>
+              </ul>
+            </div>
+            <div className="space-y-4">
+              <h4 className="text-lg font-semibold text-white">Connect</h4>
+              <div className="flex space-x-4">
+                <a
+                  href="#"
+                  className="text-zinc-400 hover:text-pink-400 transition-colors"
+                >
+                  <Twitter className="h-6 w-6" />
+                </a>
+                <a
+                  href="#"
+                  className="text-zinc-400 hover:text-pink-400 transition-colors"
+                >
+                  <Github className="h-6 w-6" />
+                </a>
+                <a
+                  href="#"
+                  className="text-zinc-400 hover:text-pink-400 transition-colors"
+                >
+                  <Mail className="h-6 w-6" />
+                </a>
+              </div>
+            </div>
+          </div>
+          <div className="mt-12 pt-8 border-t border-pink-500/10 text-center text-zinc-400">
+            <p>© 2025 AI Furniture Designer. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
+
+      {/* Login Dialog */}
+      <LoginDialog
+        isOpen={showLogin}
+        onClose={() => setShowLogin(false)}
+        redirectPath={loginRedirect}
+      />
     </main>
   );
 }

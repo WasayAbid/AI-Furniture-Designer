@@ -1,44 +1,42 @@
-// app/wallbed/page.tsx
 "use client";
 
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-import { motion } from "framer-motion";
 import { WallbedDesignerForm } from "@/components/wallbed/WallbedDesignerForm";
 
 export default function WallbedDesigner() {
   const router = useRouter();
-  const [hasMounted, setHasMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const checkAuthentication = async () => {
-      const supabase = createClientComponentClient();
-      const { data } = await supabase.auth.getSession();
-
-      if (!data.session) {
-        // Not logged in, redirect to login page
-        router.push("/wallbedlogin");
-      } else {
-        setHasMounted(true);
-      }
-    };
-
-    checkAuthentication();
-  }, [router]);
+    setIsLoading(false);
+  }, []);
 
   const handleGoBack = () => {
     router.push("/");
   };
 
-  if (!hasMounted) {
-    return <div>Loading...</div>; // Or a loading indicator
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-500"></div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 relative">
+      <Button
+        onClick={handleGoBack}
+        variant="ghost"
+        className="absolute top-24 left-4 z-10 p-2 text-zinc-300 hover:text-white hover:bg-zinc-900/30 rounded-full border border-pink-500/20"
+      >
+        <ChevronLeft className="h-8 w-8" />
+      </Button>
+
       <div className="container mx-auto px-4 py-8">
         <WallbedDesignerForm />
       </div>
