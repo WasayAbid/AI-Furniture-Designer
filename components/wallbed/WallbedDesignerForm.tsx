@@ -1,3 +1,4 @@
+// components/wallbed/WallbedDesignerForm.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -13,7 +14,6 @@ import { StorageOptions } from "@/components/wallbed/StorageOptions";
 import { SofaOptions } from "@/components/wallbed/SofaOptions";
 import { DesignHistory } from "@/components/wallbed/DesignHistory";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { useRouter } from "next/navigation";
 
 interface WallbedConfig {
   bedSize: string;
@@ -38,8 +38,9 @@ interface WallbedConfig {
   imageUrl?: string;
 }
 
-export function WallbedDesignerForm() {
-  const router = useRouter();
+interface WallbedDesignerFormProps {}
+
+export const WallbedDesignerForm: React.FC<WallbedDesignerFormProps> = () => {
   const [config, setConfig] = useState<WallbedConfig>({
     bedSize: "Queen",
     color: "Natural Oak",
@@ -114,7 +115,6 @@ export function WallbedDesignerForm() {
 
     setConfig((prev) => ({ ...prev, prompt: prompt }));
   };
-
   const handleGenerateImage = async () => {
     setIsGenerating(true);
     setError(null);
@@ -243,4 +243,4 @@ export function WallbedDesignerForm() {
       </Dialog>
     </>
   );
-}
+};
