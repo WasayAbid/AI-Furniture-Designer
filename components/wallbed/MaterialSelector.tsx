@@ -58,10 +58,7 @@ const MATERIALS = [
     name: "Medium Brown Wood",
     imageUrl: "/images/material_images/medium_brown_wood.png",
   },
-  {
-    name: "Dark Brown",
-    imageUrl: "/images/material_images/dark_brown.png",
-  },
+
   {
     name: "Light Silver",
     imageUrl: "/images/material_images/light_silver.png",

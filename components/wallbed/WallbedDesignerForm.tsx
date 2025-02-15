@@ -1,9 +1,8 @@
-// components/wallbed/WallbedDesignerForm.tsx
 "use client";
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react"; // Import AlertTriangle
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { BedSizeSelector } from "@/components/wallbed/BedSizeSelector";
@@ -14,6 +13,7 @@ import { StorageOptions } from "@/components/wallbed/StorageOptions";
 import { SofaOptions } from "@/components/wallbed/SofaOptions";
 import { DesignHistory } from "@/components/wallbed/DesignHistory";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useRouter } from "next/navigation"; // Import useRouter
 
 interface WallbedConfig {
   bedSize: string;
@@ -36,11 +36,85 @@ interface WallbedConfig {
   handleStyle: string;
   prompt?: string;
   imageUrl?: string;
+  timestamp?: number; // Add timestamp for history management
 }
 
-interface WallbedDesignerFormProps {}
+const WALLBED_DESIGN_HISTORY = "wallbed_design_history"; // Unique cookie name
+const COOKIE_EXPIRATION_DAYS = 30; // Adjust as needed
 
-export const WallbedDesignerForm: React.FC<WallbedDesignerFormProps> = () => {
+// Helper function to set a cookie
+function setCookie(name: string, value: string, days: number) {
+  const expires = new Date();
+  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Strict`;
+}
+
+// Helper function to get a cookie
+function getCookie(name: string): string | null {
+  const nameEQ = name + "=";
+  const ca = document.cookie.split(";");
+  for (let i = 0; i < ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) === " ") c = c.substring(1, c.length);
+    if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+  }
+  return null;
+}
+
+// Helper to remove designs older than the expiration
+const filterOldDesigns = (designs: WallbedConfig[]): WallbedConfig[] => {
+  const cutoff = Date.now() - COOKIE_EXPIRATION_DAYS * 24 * 60 * 60 * 1000;
+  return designs.filter(
+    (design) => design.timestamp && design.timestamp >= cutoff
+  );
+};
+
+// Function to save image
+const saveImage = async (imageUrl: string | null) => {
+  if (!imageUrl) {
+    toast.error("No image to save.");
+    return;
+  }
+
+  try {
+    // Use the proxy API route
+    const proxyUrl = `/api/proxy-image?imageUrl=${encodeURIComponent(
+      imageUrl
+    )}`;
+    const response = await fetch(proxyUrl, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      console.error(
+        "Failed to fetch image:",
+        response.status,
+        response.statusText
+      );
+      toast.error(
+        `Failed to fetch image: ${response.status} ${response.statusText}`
+      );
+      return;
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "wallbed_design.jpg";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  } catch (error: any) {
+    console.error("Error saving image:", error);
+    toast.error(`Failed to save image: ${error.message}`);
+  }
+};
+export function WallbedDesignerForm() {
+  const router = useRouter(); // Initialize useRouter
+  const [isClient, setIsClient] = useState(false);
+
   const [config, setConfig] = useState<WallbedConfig>({
     bedSize: "Queen",
     color: "Natural Oak",
@@ -60,15 +134,44 @@ export const WallbedDesignerForm: React.FC<WallbedDesignerFormProps> = () => {
     style: "Contemporary",
     lighting: "None",
     handleStyle: "Modern Pull",
-  });
+    prompt: "",
+    imageUrl: "",
+    timestamp: 0,
+  } as WallbedConfig);
 
-  const [history, setHistory] = useState<WallbedConfig[]>([]);
+  const [history, setHistory] = useState<WallbedConfig[]>([]); // History from cookie
   const [selectedHistoryItem, setSelectedHistoryItem] =
     useState<WallbedConfig | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [enlargedImageUrl, setEnlargedImageUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIsClient(true);
+    loadDesignHistoryFromCookie(); // Load history from cookie on mount
+  }, []);
+
+  const loadDesignHistoryFromCookie = () => {
+    const cookieValue = getCookie(WALLBED_DESIGN_HISTORY);
+    if (cookieValue) {
+      try {
+        const parsedHistory = JSON.parse(decodeURIComponent(cookieValue));
+        const recentHistory = filterOldDesigns(parsedHistory); // Filter old designs
+        setHistory(recentHistory);
+      } catch (error) {
+        console.error("Error parsing design history from cookie:", error);
+        // Clear corrupted cookie if necessary
+        setCookie(WALLBED_DESIGN_HISTORY, "", 0);
+      }
+    }
+  };
+
+  const saveDesignHistoryToCookie = (updatedHistory: WallbedConfig[]) => {
+    const recentHistory = filterOldDesigns(updatedHistory); // Filter before saving
+    const cookieValue = encodeURIComponent(JSON.stringify(recentHistory));
+    setCookie(WALLBED_DESIGN_HISTORY, cookieValue, COOKIE_EXPIRATION_DAYS);
+  };
 
   useEffect(() => {
     generatePrompt();
@@ -81,6 +184,7 @@ export const WallbedDesignerForm: React.FC<WallbedDesignerFormProps> = () => {
   const generatePrompt = () => {
     let prompt = `Generate an exceptionally realistic, ultra-high-definition image of a Murphy wallbed unit (foldable murphy wallbed), seamlessly integrated into a modern, minimalist interior. The design should emphasize clean lines, geometric paneling, and a sophisticated, clutter-free aesthetic. This must be a Murphy wallbed with a floating bed design, giving it an airy and contemporary feel. The image should always include a window from which natural light is casting directly onto the Murphy wallbed, creating a warm and inviting atmosphere.`;
 
+    // ... rest of your prompt generation logic ...
     if (config.bedSize) {
       prompt += ` The Murphy wallbed features a comfortable, floating and foldable ${config.bedSize} sized bed, designed to blend seamlessly into the wall unit and appear suspended above the floor.`;
     }
@@ -111,10 +215,11 @@ export const WallbedDesignerForm: React.FC<WallbedDesignerFormProps> = () => {
       prompt += ` Include a minimalist, ${config.dressingTableStyle} style dressing table integrated on the ${config.dressingTableSide} side of the Murphy wallbed, accompanied by exactly ${config.dressingTableCabinets} built-in cabinets that follow the overall design principles.`;
     }
 
-    prompt += ` only follow the given instructions, only same location cabinets if needed, only same amount cabinets if needed, only same location cupboard if needed, foldable bed, no base of bed, temperature = 0, bright room, fully lit room, sun light shining on the bed, floating bed, floating bed, murphy bed, murphy, murphy wall bed, wallbed, wall bed, 8k picture, 8k picture, 8k picture, realistic picture, realistic picture, lively environment, lively environment, welcoming picture, natural sunlight, The Murphy wallbed should be situated in a spacious, well-lit room with high-end finishes, featuring neutral-toned walls, hardwood flooring, and subtle, inviting decor elements. The room must always include a window positioned to allow natural light to cascade directly onto the Murphy wallbed, creating a warm and realistic atmosphere. The rendering should emphasize impeccable detail, clean lines, balanced proportions, and a sense of refined elegance. The overall impression should be a blend of functionality, sophistication, and a touch of modern luxury, with the floating bed adding to its unique appeal. Focus on photorealistic details, including soft, natural shadows, realistic material textures, accurate reflections, and a believable lighting balance between natural and artificial light, making the scene feel inviting and cozy.`;
+    prompt += ` only follow the given instructions, only same location cabinets if needed, only same amount cabinets if needed, only same location cupboard if needed, foldable bed, no base of bed, temperature = 0, bright room, fully lit room, sun light shining on the bed, floating bed, floating bed, murphy bed, murphy, murphy wall bed, wallbed, wall bed, 8k picture, 8k picture, realistic picture, realistic picture, lively environment, lively environment, welcoming picture, natural sunlight, The Murphy wallbed should be situated in a spacious, well-lit room with high-end finishes, featuring neutral-toned walls, hardwood flooring, and subtle, inviting decor elements. The room must always include a window positioned to allow natural light to cascade directly onto the Murphy wallbed, creating a warm and realistic atmosphere. The rendering should emphasize impeccable detail, clean lines, balanced proportions, and a sense of refined elegance. The overall impression should be a blend of functionality, sophistication, and a touch of modern luxury, with the floating bed adding to its unique appeal. Focus on photorealistic details, including soft, natural shadows, realistic material textures, accurate reflections, and a believable lighting balance between natural and artificial light, making the scene feel inviting and cozy.`;
 
     setConfig((prev) => ({ ...prev, prompt: prompt }));
   };
+
   const handleGenerateImage = async () => {
     setIsGenerating(true);
     setError(null);
@@ -131,10 +236,19 @@ export const WallbedDesignerForm: React.FC<WallbedDesignerFormProps> = () => {
       }
 
       const data = await response.json();
-      setCurrentImageUrl(data.imageUrl);
-      const newHistoryItem = { ...config, imageUrl: data.imageUrl };
-      setHistory((prev) => [...prev.slice(-3), newHistoryItem]);
-      toast.success("Design generated successfully!");
+      const storedImageUrl = data.imageUrl; // Directly use imageUrl from response
+
+      setCurrentImageUrl(storedImageUrl);
+
+      // Save design to cookie history
+      const newHistoryItem: WallbedConfig = {
+        ...config,
+        imageUrl: storedImageUrl,
+        timestamp: Date.now(),
+      };
+      setHistory((prev) => [...prev.slice(-2), newHistoryItem]); // Keep last 3 designs in history
+      saveDesignHistoryToCookie([...history.slice(-2), newHistoryItem]); // Save to cookie
+      toast.success("Design saved to history!");
     } catch (error: any) {
       console.error("Error generating image:", error);
       setError(error.message || "Failed to generate design");
@@ -158,70 +272,112 @@ export const WallbedDesignerForm: React.FC<WallbedDesignerFormProps> = () => {
   };
 
   return (
-    <>
+    <div className="max-w-7xl mx-auto">
+      <Button
+        onClick={() => router.back()}
+        className="bg-gradient-to-r from-pink-600 to-pink-500 hover:from-pink-500 hover:to-pink-400 text-white"
+      >
+        Go Back
+      </Button>
+
       <motion.h1
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="p-2 text-5xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-pink-300 via-white to-pink-200"
+        className="text-3xl md:text-5xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-pink-300 via-white to-pink-200"
       >
         Design Your Custom Wall Bed
       </motion.h1>
+      {isClient && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-br from-pink-500/10 to-zinc-800/50 rounded-lg p-4 border border-pink-500/20 mb-4"
+        >
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-6 w-6 text-pink-400 mt-1 flex-shrink-0" />
+            <div>
+              <h3 className="font-semibold text-white mb-2">
+                Instructions & Disclaimer
+              </h3>
+              <p className="text-zinc-300 text-sm">
+                These Designs are AI-generated and may not perfectly match your
+                vision. Re-generate for different results.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="space-y-6 bg-zinc-800 p-6 rounded-xl shadow-lg"
+          className="h-fit space-y-6 bg-zinc-800 p-4 md:p-6 rounded-xl shadow-lg"
         >
-          <h2 className="text-2xl font-semibold text-white">
+          <h2 className="text-xl md:text-2xl font-semibold text-white">
             Basic Configuration
           </h2>
-          <BedSizeSelector
-            value={config.bedSize}
-            onChange={(value) => handleConfigChange({ bedSize: value })}
-          />
-
-          <MaterialSelector
-            value={config.material}
-            onChange={(value) => handleConfigChange({ material: value })}
-          />
-          <StorageOptions config={config} onChange={handleConfigChange} />
-          <LightingSelector
-            value={config.lighting}
-            onChange={(value) => handleConfigChange({ lighting: value })}
-          />
+          <div className="space-y-4">
+            <BedSizeSelector
+              value={config.bedSize}
+              onChange={(value) => handleConfigChange({ bedSize: value })}
+            />
+            <MaterialSelector
+              value={config.material}
+              onChange={(value) => handleConfigChange({ material: value })}
+            />
+            <StorageOptions config={config} onChange={handleConfigChange} />
+            <LightingSelector
+              value={config.lighting}
+              onChange={(value) => handleConfigChange({ lighting: value })}
+            />
+          </div>
           <Button
-            className="w-full bg-pink-600 text-white"
+            className="w-full bg-gradient-to-r from-pink-600 to-pink-500 hover:from-pink-500 hover:to-pink-400 text-white py-6 text-lg rounded-xl"
             onClick={handleGenerateImage}
             disabled={isGenerating}
           >
             {isGenerating ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating...
+              </>
             ) : (
               "Generate Design"
             )}
           </Button>
         </motion.div>
 
-        <motion.div className="bg-zinc-800 p-6 rounded-xl shadow-lg">
+        <motion.div className="bg-zinc-800 p-4 md:p-6 rounded-xl shadow-lg min-h-[300px] flex items-center justify-center flex-col">
           {currentImageUrl ? (
-            <img
-              src={currentImageUrl}
-              alt="Generated wall bed design"
-              className="w-full h-full object-contain cursor-pointer"
-              onClick={() => handleEnlargeImage(currentImageUrl)}
-            />
+            <>
+              <img
+                src={currentImageUrl}
+                alt="Generated wall bed design"
+                className="w-full h-auto max-h-[600px] object-contain cursor-pointer rounded-lg"
+                onClick={() => handleEnlargeImage(currentImageUrl)}
+              />
+              <Button
+                onClick={() => saveImage(currentImageUrl)}
+                className="mt-2 bg-gradient-to-r from-pink-600 to-pink-500 hover:from-pink-500 hover:to-pink-400 text-white"
+              >
+                Save Image
+              </Button>
+            </>
           ) : (
-            <p className="text-zinc-400">
+            <p className="text-zinc-400 text-center px-4">
               Configure your wall bed and click Generate Design
             </p>
           )}
-          {error && <div className="mt-4 text-red-500">Error: {error}</div>}
+          {error && (
+            <div className="mt-4 text-red-500 text-center">{error}</div>
+          )}
         </motion.div>
       </div>
+
       <div className="mt-8">
         <DesignHistory
-          history={history}
+          history={history} // Pass history state to DesignHistory
           selectedHistoryItem={selectedHistoryItem}
           onSelectHistoryItem={setSelectedHistoryItem}
           onLoadDesign={handleLoadDesign}
@@ -229,18 +385,18 @@ export const WallbedDesignerForm: React.FC<WallbedDesignerFormProps> = () => {
       </div>
 
       <Dialog open={!!enlargedImageUrl} onOpenChange={handleCloseEnlargeImage}>
-        <DialogContent className="max-w-4xl bg-black border-2 border-pink-500/20">
-          <div className="aspect-square relative rounded-lg overflow-hidden">
+        <DialogContent className="max-w-[95vw] md:max-w-4xl bg-black border-2 border-pink-500/20">
+          <div className="relative rounded-lg overflow-hidden">
             {enlargedImageUrl && (
               <img
                 src={enlargedImageUrl}
                 alt="Enlarged wall bed design"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
             )}
           </div>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
-};
+}

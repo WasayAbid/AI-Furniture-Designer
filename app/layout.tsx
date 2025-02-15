@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { Header } from "@/components/layout/Header";
+import { InitialLoginDialog } from "@/components/auth/InitialLoginDialog";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,6 +23,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <Header />
         <main className="pt-20">{children}</main>
+        <InitialLoginDialog />
         <Toaster />
       </body>
     </html>

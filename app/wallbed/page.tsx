@@ -28,17 +28,11 @@ export default function WallbedDesigner() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 relative">
-      <Button
-        onClick={handleGoBack}
-        variant="ghost"
-        className="absolute top-24 left-4 z-10 p-2 text-zinc-300 hover:text-white hover:bg-zinc-900/30 rounded-full border border-pink-500/20"
-      >
-        <ChevronLeft className="h-8 w-8" />
-      </Button>
-
-      <div className="container mx-auto px-4 py-8">
-        <WallbedDesignerForm />
+    <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950">
+      <div className="container mx-auto px-4 py-8 relative">
+        <div className="pt-12">
+          <WallbedDesignerForm />
+        </div>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Clock } from "lucide-react";
+import { toast } from "sonner";
 
 interface HistoryItem {
   imageUrl?: string;
@@ -24,6 +25,7 @@ interface HistoryItem {
   dressingTableCabinets: number;
   hasSofa: boolean;
   sofaColor: string;
+  timestamp?: number;
 }
 
 interface DesignHistoryProps {
@@ -32,6 +34,48 @@ interface DesignHistoryProps {
   onSelectHistoryItem: (item: HistoryItem | null) => void;
   onLoadDesign: (design: HistoryItem) => void;
 }
+
+// Function to save image
+const saveImage = async (imageUrl: string | null) => {
+  if (!imageUrl) {
+    toast.error("No image to save.");
+    return;
+  }
+
+  try {
+    const proxyUrl = `/api/proxy-image?imageUrl=${encodeURIComponent(
+      imageUrl
+    )}`;
+    const response = await fetch(proxyUrl, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      console.error(
+        "Failed to fetch image:",
+        response.status,
+        response.statusText
+      );
+      toast.error(
+        `Failed to fetch image: ${response.status} ${response.statusText}`
+      );
+      return;
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "wallbed_design.jpg";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  } catch (error: any) {
+    console.error("Error saving image:", error);
+    toast.error(`Failed to save image: ${error.message}`);
+  }
+};
 
 export function DesignHistory({
   history,
@@ -54,6 +98,7 @@ export function DesignHistory({
                 onClick={() => onSelectHistoryItem(item)}
                 className="relative aspect-square bg-zinc-800/50 rounded-lg overflow-hidden hover:ring-2 ring-pink-500 transition-all"
               >
+                {/* Display image from URL */}
                 {item.imageUrl ? (
                   <img
                     src={item.imageUrl}
@@ -78,14 +123,22 @@ export function DesignHistory({
         <DialogContent className="max-w-4xl bg-zinc-800 border-pink-500/20">
           <DialogTitle className="text-white">Design Details</DialogTitle>
           <div className="grid grid-cols-2 gap-8">
-            {selectedHistoryItem?.imageUrl && (
+            {selectedHistoryItem?.imageUrl ? (
               <div className="aspect-square relative rounded-lg overflow-hidden">
                 <img
                   src={selectedHistoryItem.imageUrl}
                   alt="Historical design"
                   className="w-full h-full object-cover"
                 />
+                <Button
+                  onClick={() => saveImage(selectedHistoryItem.imageUrl!)}
+                  className="mt-2 bg-gradient-to-r from-pink-600 to-pink-500 hover:from-pink-500 hover:to-pink-400 text-white"
+                >
+                  Save Image
+                </Button>
               </div>
+            ) : (
+              <div>No Image to Display</div>
             )}
             <div className="space-y-4 text-zinc-200">
               {selectedHistoryItem && (

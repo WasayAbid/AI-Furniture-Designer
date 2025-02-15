@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send,
@@ -8,19 +8,24 @@ import {
   Lightbulb,
   AlertTriangle,
   Maximize2,
+  X, // Import the X icon (or Trash2, etc.)
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { saveChatMessage, getChatHistory } from "@/lib/supabase/queries";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import type { Database } from "@/lib/supabase/database.types";
+import { uploadImage } from "@/lib/supabase/storage";
 
 interface Message {
   role: "user" | "assistant" | "system";
   content: string;
   image?: string;
+  timestamp?: number; // Add a timestamp to each message
 }
 
 const INITIAL_MESSAGES: Message[] = [
@@ -28,6 +33,7 @@ const INITIAL_MESSAGES: Message[] = [
     role: "system",
     content:
       "You are an expert furniture designer specializing in minimalist, functional designs. Focus on clean lines, premium materials, and perfect lighting in your image generations.",
+    timestamp: Date.now(), //  Add timestamp
   },
 ];
 
@@ -35,13 +41,13 @@ const PRESET_PROMPTS = [
   {
     title: "Kitchen Cabinets",
     prompt:
-      "generate a minimalist kitchen with sleek cabinets in white and wood tones. Show natural light from large windows highlighting the clean lines and premium materials.",
+      "visualize modern kitchen cabinets in a warm terracotta color with walnut wood veneer accents. Feature thin shaker-style doors and a light-toned quartz countertop. Design for a natural and inviting modern kitchen.",
     icon: "🪑",
   },
   {
     title: "Dressing Table",
     prompt:
-      "generate a modern dressing table with a floating mirror, integrated LED lighting, and hidden storage. Natural light should emphasize the luxurious finishes.",
+      "Visualize an elegant and modern vanity room. Feature a dressing table with a large mirror and drawers, complemented by wall-mounted cabinets and floor-to-ceiling cupboards for storage. Use soft, diffused lighting to create a luxurious, serene atmosphere.",
     icon: "🪞",
   },
   {
@@ -58,18 +64,92 @@ const PRESET_PROMPTS = [
   },
 ];
 
+const COOKIE_NAME = "chat_history";
+const COOKIE_EXPIRATION_DAYS = 15;
+
+// Helper function to set a cookie
+function setCookie(name: string, value: string, days: number) {
+  const expires = new Date();
+  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Strict`;
+}
+
+// Helper function to get a cookie
+function getCookie(name: string): string | null {
+  const nameEQ = name + "=";
+  const ca = document.cookie.split(";");
+  for (let i = 0; i < ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) === " ") c = c.substring(1, c.length);
+    if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+  }
+  return null;
+}
+
+// Helper to remove messages older than the expiration
+const filterOldMessages = (messages: Message[]): Message[] => {
+  const cutoff = Date.now() - COOKIE_EXPIRATION_DAYS * 24 * 60 * 60 * 1000;
+  return messages.filter(
+    (message) => message.timestamp && message.timestamp >= cutoff
+  );
+};
+
 export default function ChatComponent() {
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-  const router = useRouter();
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const supabase = createClientComponentClient<Database>();
+
+  const handleClearChat = () => {
+    setCookie(COOKIE_NAME, "", 0); // Delete the cookie
+    setMessages(INITIAL_MESSAGES); // Reset messages to initial state
+    toast.success("Chat history cleared!");
+  };
 
   useEffect(() => {
     setIsClient(true);
+    loadChatHistoryFromCookie(); // Load from cookie FIRST
+    loadChatHistory(); // Then load from Supabase (for older messages, if you want)
   }, []);
+
+  const loadChatHistoryFromCookie = () => {
+    const cookieValue = getCookie(COOKIE_NAME);
+    if (cookieValue) {
+      try {
+        const parsedMessages = JSON.parse(decodeURIComponent(cookieValue));
+        // Filter out messages older than 15 days
+        const recentMessages = filterOldMessages(parsedMessages);
+        setMessages((prevMessages) => {
+          // Combine cookie messages with initial messages, ensuring no duplicates
+          const allMessages = [...INITIAL_MESSAGES, ...recentMessages];
+          const uniqueMessages = Array.from(
+            new Map(allMessages.map((item) => [item.content, item])).values()
+          ); // Simple deduplication
+          return uniqueMessages;
+        });
+      } catch (error) {
+        console.error("Error parsing chat history from cookie:", error);
+        // Handle the error, e.g., clear the corrupted cookie
+        setCookie(COOKIE_NAME, "", 0); // Remove the cookie
+      }
+    }
+  };
+
+  const loadChatHistory = async () => {
+    //Kept for option to have more chat history from database
+  };
+
+  const saveChatHistoryToCookie = (updatedMessages: Message[]) => {
+    // Filter out messages older than 15 days before saving.
+    const recentMessages = filterOldMessages(updatedMessages);
+    const cookieValue = encodeURIComponent(JSON.stringify(recentMessages));
+    setCookie(COOKIE_NAME, cookieValue, COOKIE_EXPIRATION_DAYS);
+  };
 
   const handleSubmit = async (e: React.FormEvent, customPrompt?: string) => {
     e.preventDefault();
@@ -77,34 +157,42 @@ export default function ChatComponent() {
 
     const userMessage = customPrompt || input;
     setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+
+    // Add user message to UI immediately
+    const newUserMessage: Message = {
+      role: "user",
+      content: userMessage,
+      timestamp: Date.now(),
+    };
+    setMessages((prev) => {
+      const updatedMessages = [...prev, newUserMessage];
+      saveChatHistoryToCookie(updatedMessages);
+      return updatedMessages;
+    });
+
+    // Save user message to database
+    try {
+      await saveChatMessage(userMessage, "user");
+    } catch (error) {
+      console.error("Error saving user message:", error);
+    }
+
     setIsLoading(true);
 
     const shouldGenerateImage =
-      userMessage.toLowerCase().includes("generate image") ||
-      userMessage.toLowerCase().includes("make") ||
-      userMessage.toLowerCase().includes("show") ||
-      userMessage.toLowerCase().includes("create a visualization") ||
-      userMessage.toLowerCase().includes("create") ||
       userMessage.toLowerCase().includes("generate") ||
-      userMessage.toLowerCase().includes("image") ||
-      userMessage.toLowerCase().includes("picture") ||
-      userMessage.toLowerCase().includes("pic") ||
-      userMessage.toLowerCase().includes("img") ||
-      userMessage.toLowerCase().includes("show you a design") ||
-      userMessage.toLowerCase().includes("visualize") ||
-      userMessage.toLowerCase().includes("render");
+      userMessage.toLowerCase().includes("create") ||
+      userMessage.toLowerCase().includes("show") ||
+      userMessage.toLowerCase().includes("visualize");
 
     setIsGeneratingImage(shouldGenerateImage);
 
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages,
+          messages: messages.filter((m) => m.role !== "system"), // Don't send the system message to the API
           userMessage,
           shouldGenerateImage,
         }),
@@ -118,21 +206,38 @@ export default function ChatComponent() {
       const data = await response.json();
       const { response: assistantResponse, imageUrl } = data;
 
-      setMessages((prev) => [
-        ...prev,
-        {
+      // Upload image to Supabase Storage if one was generated
+      let storedImageUrl = imageUrl;
+      if (imageUrl) {
+        try {
+          storedImageUrl = await uploadImage(imageUrl, "chat");
+        } catch (error) {
+          console.error("Error uploading image:", error);
+        }
+      }
+
+      // Save assistant message to database
+      try {
+        await saveChatMessage(assistantResponse, "assistant", storedImageUrl);
+      } catch (error) {
+        console.error("Error saving assistant message:", error);
+      }
+
+      // Update UI
+      setMessages((prev) => {
+        const newAssistantMessage: Message = {
           role: "assistant",
           content: assistantResponse,
-          image: imageUrl,
-        },
-      ]);
+          image: storedImageUrl,
+          timestamp: Date.now(),
+        };
+        const updatedMessages = [...prev, newAssistantMessage];
+        saveChatHistoryToCookie(updatedMessages); // Save to cookie after assistant response
+        return updatedMessages;
+      });
     } catch (error: any) {
       console.error("Error:", error);
-      if (isClient) {
-        toast.error(
-          error.message || "Failed to get response. Please try again."
-        );
-      }
+      toast.error(error.message || "Failed to get response");
     } finally {
       setIsLoading(false);
       setIsGeneratingImage(false);
@@ -143,6 +248,7 @@ export default function ChatComponent() {
     setEnlargedImage(imageUrl);
   };
 
+  // ... rest of your component remains largely the same, just use the updated messages ...
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 relative overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -185,7 +291,14 @@ export default function ChatComponent() {
         )}
 
         <div className="bg-gradient-to-br from-zinc-800/50 to-zinc-900/50 backdrop-blur-sm rounded-xl shadow-lg border border-pink-500/10 flex-1 flex flex-col">
-          <ScrollArea className="flex-1 p-4">
+          <ScrollArea className="flex-1 p-4 relative">
+            {/* Clear Chat Button (Moved inside ScrollArea) */}
+            <Button
+              onClick={handleClearChat}
+              className="absolute bottom-2 left-2 bg-gradient-to-r from-pink-600 to-pink-500 hover:from-pink-500 hover:to-pink-400 text-white text-xs"
+            >
+              Clear Chat
+            </Button>
             <div className="space-y-4">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
                 {PRESET_PROMPTS.map(
@@ -320,7 +433,7 @@ export default function ChatComponent() {
 
           <form
             onSubmit={handleSubmit}
-            className="p-4 border-t border-pink-500/10"
+            className="p-4 border-t border-pink-500/10 relative" // Add relative positioning
           >
             <div className="flex gap-2">
               <Input

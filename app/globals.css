@@ -80,6 +80,73 @@
   body {
     @apply bg-gradient-to-b from-zinc-900 via-zinc-800 to-zinc-900 text-foreground min-h-screen;
   }
+
+  /* Base responsive typography */
+  h1 {
+    @apply text-2xl md:text-3xl lg:text-4xl font-bold;
+  }
+  h2 {
+    @apply text-xl md:text-2xl lg:text-3xl font-semibold;
+  }
+  h3 {
+    @apply text-lg md:text-xl lg:text-2xl font-semibold;
+  }
+  p {
+    @apply text-sm md:text-base lg:text-lg;
+  }
+}
+
+/* Responsive container */
+.container {
+  @apply px-4 sm:px-6 lg:px-8 mx-auto max-w-7xl;
+}
+
+/* Responsive grid layouts */
+.responsive-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8;
+}
+
+/* Responsive form elements */
+.form-input {
+  @apply w-full px-3 py-2 text-sm md:text-base rounded-md;
+}
+
+.form-select {
+  @apply w-full px-3 py-2 text-sm md:text-base rounded-md;
+}
+
+/* Touch-friendly buttons */
+.touch-button {
+  @apply min-h-[44px] min-w-[44px] px-4 py-2 md:px-6 md:py-3;
+}
+
+/* Responsive images */
+.responsive-image {
+  @apply w-full h-auto object-cover;
+}
+
+/* Responsive spacing */
+.section-spacing {
+  @apply py-8 md:py-12 lg:py-16;
+}
+
+/* Mobile navigation */
+.mobile-nav {
+  @apply fixed inset-0 z-50 bg-zinc-900/95 backdrop-blur-sm lg:hidden;
+}
+
+/* Responsive tables */
+.responsive-table {
+  @apply w-full overflow-x-auto;
+}
+
+.responsive-table table {
+  @apply min-w-full;
+}
+
+/* Responsive dialogs */
+.responsive-dialog {
+  @apply w-[90vw] max-w-lg md:max-w-xl lg:max-w-2xl mx-auto;
 }
 
 /* 3D Transform Styles */
@@ -112,4 +179,98 @@
 .animate-gradient {
   background-size: 200% auto;
   animation: gradient 3s linear infinite;
+}
+
+/* Media Queries for specific breakpoints */
+@media (max-width: 320px) {
+  .xs-only {
+    @apply block;
+  }
+  .xs-hidden {
+    @apply hidden;
+  }
+}
+
+@media (min-width: 321px) and (max-width: 767px) {
+  .sm-only {
+    @apply block;
+  }
+  .sm-hidden {
+    @apply hidden;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .md-only {
+    @apply block;
+  }
+  .md-hidden {
+    @apply hidden;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1439px) {
+  .lg-only {
+    @apply block;
+  }
+  .lg-hidden {
+    @apply hidden;
+  }
+}
+
+@media (min-width: 1440px) {
+  .xl-only {
+    @apply block;
+  }
+  .xl-hidden {
+    @apply hidden;
+  }
+}
+
+/* Orientation specific styles */
+@media (orientation: portrait) {
+  .portrait-only {
+    @apply block;
+  }
+  .landscape-only {
+    @apply hidden;
+  }
+}
+
+@media (orientation: landscape) {
+  .portrait-only {
+    @apply hidden;
+  }
+  .landscape-only {
+    @apply block;
+  }
+}
+
+/* Performance optimizations */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) {
+  .touch-only {
+    @apply block;
+  }
+  .no-touch-only {
+    @apply hidden;
+  }
+}
+
+@media (hover: hover) {
+  .touch-only {
+    @apply hidden;
+  }
+  .no-touch-only {
+    @apply block;
+  }
 }
