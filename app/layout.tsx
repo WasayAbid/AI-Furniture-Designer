@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   title: "Murphy Al-Saham",
   description:
     "Revolutionizing furniture design through artificial intelligence",
+  icons: {
+    icon: "/images/logo-large.jpg", // Assuming this is intended as favicon
+  },
 };
 
 export default function RootLayout({

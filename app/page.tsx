@@ -6,10 +6,11 @@ import {
   Bed,
   MessageSquare,
   ArrowRight,
-  TestTube2,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
+  Github,
+  Mail,
+  Twitter,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -277,6 +278,67 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="mt-16 md:mt-24 border-t border-pink-500/10 bg-gradient-to-b from-zinc-900 to-zinc-950">
+        <div className="container mx-auto px-4 py-8 md:py-12">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            <div className="space-y-4 col-span-2 md:col-span-1">
+              <h3 className="text-xl font-bold text-white">
+                AI Furniture Designer
+              </h3>
+              <p className="text-sm md:text-base text-zinc-400">
+                Transform your living space with AI-powered furniture design
+                solutions.
+              </p>
+            </div>
+            <div className="space-y-4">
+              <h4 className="text-lg font-semibold text-white">Products</h4>
+              <ul className="space-y-2 text-sm md:text-base text-zinc-400">
+                <li>Wall Beds</li>
+                <li>Kitchen Cabinets</li>
+                <li>Dressing Tables</li>
+                <li>Custom Furniture</li>
+              </ul>
+            </div>
+            <div className="space-y-4">
+              <h4 className="text-lg font-semibold text-white">Company</h4>
+              <ul className="space-y-2 text-sm md:text-base text-zinc-400">
+                <li>About Us</li>
+                <li>Contact</li>
+                <li>Privacy Policy</li>
+                <li>Terms of Service</li>
+              </ul>
+            </div>
+            <div className="space-y-4">
+              <h4 className="text-lg font-semibold text-white">Connect</h4>
+              <div className="flex space-x-4">
+                <a
+                  href="#"
+                  className="text-zinc-400 hover:text-pink-400 transition-colors"
+                >
+                  <Twitter className="h-6 w-6" />
+                </a>
+                <a
+                  href="#"
+                  className="text-zinc-400 hover:text-pink-400 transition-colors"
+                >
+                  <Github className="h-6 w-6" />
+                </a>
+                <a
+                  href="#"
+                  className="text-zinc-400 hover:text-pink-400 transition-colors"
+                >
+                  <Mail className="h-6 w-6" />
+                </a>
+              </div>
+            </div>
+          </div>
+          <div className="mt-8 md:mt-12 pt-8 border-t border-pink-500/10 text-center text-sm md:text-base text-zinc-400">
+            <p>© 2025 AI Furniture Designer. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }

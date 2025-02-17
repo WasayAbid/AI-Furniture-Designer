@@ -319,6 +319,13 @@ export default function ChatComponent() {
     setEnlargedImage(imageUrl);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Prevent form submission on Enter key
+    if (e.key === "Enter") {
+      e.preventDefault();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 relative overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -495,61 +502,68 @@ export default function ChatComponent() {
             }}
             className="p-4 border-t border-pink-500/10 relative"
           >
-            <div className="flex gap-2 items-center">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <motion.button
-                      onClick={handleClearChat}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="relative w-10 h-10 rounded-xl bg-zinc-800/80 border border-pink-500/20 hover:bg-pink-500/10 text-pink-400 flex items-center justify-center transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      <div className="absolute inset-0 rounded-xl bg-pink-500/5 opacity-0 hover:opacity-100 transition-opacity" />
-                    </motion.button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">Clear Chat</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex gap-2 flex-1">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <motion.button
+                        onClick={handleClearChat}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="relative w-10 h-10 rounded-xl bg-zinc-800/80 border border-pink-500/20 hover:bg-pink-500/10 text-pink-400 flex items-center justify-center transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <div className="absolute inset-0 rounded-xl bg-pink-500/5 opacity-0 hover:opacity-100 transition-opacity" />
+                      </motion.button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Clear Chat</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Describe your furniture idea..."
-                disabled={isLoading}
-                className="bg-zinc-800/50 border-pink-500/20 text-white placeholder:text-zinc-400 flex-1 h-10"
-              />
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Describe your furniture idea..."
+                  disabled={isLoading}
+                  className="bg-zinc-800/50 border-pink-500/20 text-white placeholder:text-zinc-400 flex-1 h-10"
+                />
+              </div>
 
-              <motion.button
-                type="submit"
-                disabled={isLoading}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="relative h-10 px-4 rounded-xl bg-gradient-to-r from-pink-600 to-pink-500 text-white flex items-center justify-center overflow-hidden group"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-pink-500 to-pink-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <Send className="h-4 w-4 relative z-10" />
-                <div className="absolute inset-0 bg-gradient-to-r from-pink-400/0 via-pink-400/30 to-pink-400/0 opacity-0 group-hover:opacity-100 blur-sm transition-opacity" />
-              </motion.button>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <motion.button
+                  type="submit"
+                  disabled={isLoading}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="relative h-10 px-4 rounded-xl bg-gradient-to-r from-pink-600 to-pink-500 text-white flex items-center justify-center overflow-hidden group flex-1 sm:flex-initial"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-pink-500 to-pink-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <Send className="h-4 w-4 relative z-10" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-pink-400/0 via-pink-400/30 to-pink-400/0 opacity-0 group-hover:opacity-100 blur-sm transition-opacity" />
+                </motion.button>
 
-              <motion.button
-                type="button"
-                onClick={() => handleSubmit(input, "generate")}
-                disabled={isLoading}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="relative h-10 px-6 rounded-xl bg-gradient-to-r from-pink-600 to-pink-500 text-white flex items-center justify-center overflow-hidden group"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-pink-500 to-pink-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="relative z-10 flex items-center">
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  <span className="text-sm font-medium">Generate</span>
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-r from-pink-400/0 via-pink-400/30 to-pink-400/0 opacity-0 group-hover:opacity-100 blur-sm transition-opacity" />
-              </motion.button>
+                <motion.button
+                  type="button"
+                  onClick={() => handleSubmit(input, "generate")}
+                  disabled={isLoading}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="relative h-10 px-4 rounded-xl bg-gradient-to-r from-pink-600 to-pink-500 text-white flex items-center gap-2 justify-center overflow-hidden group flex-1 sm:flex-initial"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-pink-500 to-pink-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="relative z-10 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    <span className="text-sm font-medium whitespace-nowrap">
+                      Generate Image
+                    </span>
+                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-pink-400/0 via-pink-400/30 to-pink-400/0 opacity-0 group-hover:opacity-100 blur-sm transition-opacity" />
+                </motion.button>
+              </div>
             </div>
           </form>
         </div>
