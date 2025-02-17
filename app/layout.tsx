@@ -12,7 +12,9 @@ export const metadata: Metadata = {
   description:
     "Revolutionizing furniture design through artificial intelligence",
   icons: {
-    icon: "/images/logo-large.jpg", // Assuming this is intended as favicon
+    icon: "/images/logo-large.jpg",
+    shortcut: "/images/logo-large.jpg",
+    apple: "/images/logo-large.jpg", // Path to the apple touch ico // Assuming this is intended as favicon
   },
 };
 
