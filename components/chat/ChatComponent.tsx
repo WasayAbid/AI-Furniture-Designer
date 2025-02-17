@@ -26,6 +26,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  setChatHistory,
+  getChatHistory as getStoredChatHistory,
+  clearChatHistory,
+  addGeneratedImage,
+  clearGeneratedImages,
+} from "@/lib/cookies";
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -145,48 +152,21 @@ export default function ChatComponent() {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    setIsClient(true);
+    const history = getStoredChatHistory();
+    if (history.length > 0) {
+      setMessages([...INITIAL_MESSAGES, ...history]);
+    }
+  }, []);
+
   const handleClearChat = () => {
     if (isLoading) return;
-    setCookie(COOKIE_NAME, "", 0);
+    clearChatHistory();
+    clearGeneratedImages();
     setMessages(INITIAL_MESSAGES);
     setInput("");
     toast.success("Chat history cleared!");
-  };
-
-  useEffect(() => {
-    setIsClient(true);
-    loadChatHistoryFromCookie();
-    loadChatHistory();
-  }, []);
-
-  const loadChatHistoryFromCookie = () => {
-    const cookieValue = getCookie(COOKIE_NAME);
-    if (cookieValue) {
-      try {
-        const parsedMessages = JSON.parse(decodeURIComponent(cookieValue));
-        const recentMessages = filterOldMessages(parsedMessages);
-        setMessages((prevMessages) => {
-          const allMessages = [...INITIAL_MESSAGES, ...recentMessages];
-          const uniqueMessages = Array.from(
-            new Map(allMessages.map((item) => [item.content, item])).values()
-          );
-          return uniqueMessages;
-        });
-      } catch (error) {
-        console.error("Error parsing chat history from cookie:", error);
-        setCookie(COOKIE_NAME, "", 0);
-      }
-    }
-  };
-
-  const loadChatHistory = async () => {
-    // Kept for the option to have more chat history from the database
-  };
-
-  const saveChatHistoryToCookie = (updatedMessages: Message[]) => {
-    const recentMessages = filterOldMessages(updatedMessages);
-    const cookieValue = encodeURIComponent(JSON.stringify(recentMessages));
-    setCookie(COOKIE_NAME, cookieValue, COOKIE_EXPIRATION_DAYS);
   };
 
   const handleSubmit = async (userMessage: string, type: string) => {
@@ -199,7 +179,11 @@ export default function ChatComponent() {
       content: userMessage,
       timestamp: Date.now(),
     };
-    setMessages((prev) => [...prev, newUserMessage]);
+
+    // Update messages with user message
+    const updatedMessages = [...messages, newUserMessage];
+    setMessages(updatedMessages);
+    setChatHistory(updatedMessages.filter((m) => m.role !== "system"));
 
     try {
       await saveChatMessage(userMessage, "user");
@@ -220,7 +204,7 @@ export default function ChatComponent() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              messages: messages.filter((m) => m.role !== "system"),
+              messages: updatedMessages.filter((m) => m.role !== "system"),
               userMessage,
               shouldGenerateImage: true,
             }),
@@ -238,6 +222,8 @@ export default function ChatComponent() {
           if (imageUrl) {
             try {
               storedImageUrl = await uploadImage(imageUrl, "chat");
+              // Save the image URL to cookies
+              addGeneratedImage(storedImageUrl);
             } catch (error) {
               console.error("Error uploading image:", error);
             }
@@ -253,16 +239,16 @@ export default function ChatComponent() {
             console.error("Error saving assistant message:", error);
           }
 
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content: assistantResponse,
-              image: storedImageUrl,
-              timestamp: Date.now(),
-            },
-          ]);
-          saveChatHistoryToCookie(messages);
+          const newAssistantMessage = {
+            role: "assistant" as const,
+            content: assistantResponse,
+            image: storedImageUrl,
+            timestamp: Date.now(),
+          };
+
+          const finalMessages = [...updatedMessages, newAssistantMessage];
+          setMessages(finalMessages);
+          setChatHistory(finalMessages.filter((m) => m.role !== "system"));
         } catch (error: any) {
           console.error("Error:", error);
           toast.error(error.message || "Failed to get response");
@@ -272,16 +258,15 @@ export default function ChatComponent() {
         }
       } else {
         setIsLoading(false);
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content:
-              "I can only generate images related to furniture design. Please provide a description of furniture you'd like me to visualize.",
-            timestamp: Date.now(),
-          },
-        ]);
-        saveChatHistoryToCookie(messages);
+        const noFurnitureMessage = {
+          role: "assistant" as const,
+          content:
+            "I can only generate images related to furniture design. Please provide a description of furniture you'd like me to visualize.",
+          timestamp: Date.now(),
+        };
+        const finalMessages = [...updatedMessages, noFurnitureMessage];
+        setMessages(finalMessages);
+        setChatHistory(finalMessages.filter((m) => m.role !== "system"));
       }
     } else {
       try {
@@ -289,7 +274,7 @@ export default function ChatComponent() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            messages: messages.filter((m) => m.role !== "system"),
+            messages: updatedMessages.filter((m) => m.role !== "system"),
             userMessage,
             shouldGenerateImage: false,
           }),
@@ -309,15 +294,15 @@ export default function ChatComponent() {
           console.error("Error saving assistant message:", error);
         }
 
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: assistantResponse,
-            timestamp: Date.now(),
-          },
-        ]);
-        saveChatHistoryToCookie(messages);
+        const newAssistantMessage = {
+          role: "assistant" as const,
+          content: assistantResponse,
+          timestamp: Date.now(),
+        };
+
+        const finalMessages = [...updatedMessages, newAssistantMessage];
+        setMessages(finalMessages);
+        setChatHistory(finalMessages.filter((m) => m.role !== "system"));
       } catch (error: any) {
         console.error("Error:", error);
         toast.error(error.message || "Failed to get response");
@@ -417,8 +402,8 @@ export default function ChatComponent() {
                 >
                   <div className="prose prose-invert max-w-none">
                     <p>
-                      Hello! I&apos;m ready to assist you with your furniture
-                      design needs. Let&apos;s create something amazing!
+                      Hello! I'm ready to assist you with your furniture design
+                      needs. Let's create something amazing!
                     </p>
                   </div>
                 </motion.div>
@@ -575,7 +560,7 @@ export default function ChatComponent() {
                   <div className="relative z-10 flex items-center gap-2">
                     <Sparkles className="h-4 w-4" />
                     <span className="text-sm font-medium whitespace-nowrap">
-                      Generate
+                      Generate Image
                     </span>
                   </div>
                   <div className="absolute inset-0 bg-gradient-to-r from-pink-400/0 via-pink-400/30 to-pink-400/0 opacity-0 group-hover:opacity-100 blur-sm transition-opacity" />
