@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Loader2,
-  Lightbulb,
   AlertTriangle,
   Maximize2,
   Trash2,
@@ -135,11 +134,22 @@ export default function ChatComponent() {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabase = createClientComponentClient<Database>();
 
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
   const handleClearChat = () => {
+    if (isLoading) return;
     setCookie(COOKIE_NAME, "", 0);
     setMessages(INITIAL_MESSAGES);
+    setInput("");
     toast.success("Chat history cleared!");
   };
 
@@ -180,6 +190,8 @@ export default function ChatComponent() {
   };
 
   const handleSubmit = async (userMessage: string, type: string) => {
+    if (!userMessage.trim()) return;
+
     setInput("");
 
     const newUserMessage: Message = {
@@ -315,15 +327,17 @@ export default function ChatComponent() {
     }
   };
 
-  const handleImageClick = (imageUrl: string) => {
-    setEnlargedImage(imageUrl);
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (!isLoading && input.trim()) {
+        handleSubmit(input, "send");
+      }
+    }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Prevent form submission on Enter key
-    if (e.key === "Enter") {
-      e.preventDefault();
-    }
+  const handleImageClick = (imageUrl: string) => {
+    setEnlargedImage(imageUrl);
   };
 
   return (
@@ -484,7 +498,7 @@ export default function ChatComponent() {
                               ease: "easeInOut",
                             }}
                           >
-                            <Lightbulb className="h-12 w-12 text-pink-400/50" />
+                            <Sparkles className="h-12 w-12 text-pink-400/50" />
                           </motion.div>
                         </div>
                       </div>
@@ -492,13 +506,16 @@ export default function ChatComponent() {
                   </div>
                 </motion.div>
               )}
+              <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
 
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              handleSubmit(input, "send");
+              if (input.trim()) {
+                handleSubmit(input, "send");
+              }
             }}
             className="p-4 border-t border-pink-500/10 relative"
           >
@@ -536,10 +553,10 @@ export default function ChatComponent() {
               <div className="flex gap-2 w-full sm:w-auto">
                 <motion.button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || !input.trim()}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="relative h-10 px-4 rounded-xl bg-gradient-to-r from-pink-600 to-pink-500 text-white flex items-center justify-center overflow-hidden group flex-1 sm:flex-initial"
+                  className="relative h-10 px-4 rounded-xl bg-gradient-to-r from-pink-600 to-pink-500 text-white flex items-center justify-center overflow-hidden group flex-1 sm:flex-initial disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-pink-500 to-pink-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                   <Send className="h-4 w-4 relative z-10" />
@@ -549,10 +566,10 @@ export default function ChatComponent() {
                 <motion.button
                   type="button"
                   onClick={() => handleSubmit(input, "generate")}
-                  disabled={isLoading}
+                  disabled={isLoading || !input.trim()}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="relative h-10 px-4 rounded-xl bg-gradient-to-r from-pink-600 to-pink-500 text-white flex items-center gap-2 justify-center overflow-hidden group flex-1 sm:flex-initial"
+                  className="relative h-10 px-4 rounded-xl bg-gradient-to-r from-pink-600 to-pink-500 text-white flex items-center gap-2 justify-center overflow-hidden group flex-1 sm:flex-initial disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-pink-500 to-pink-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                   <div className="relative z-10 flex items-center gap-2">
