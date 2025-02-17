@@ -402,8 +402,8 @@ export default function ChatComponent() {
                 >
                   <div className="prose prose-invert max-w-none">
                     <p>
-                      Hello! I'm ready to assist you with your furniture design
-                      needs. Let's create something amazing!
+                      Hello! I&apos;m ready to assist you with your furniture
+                      design needs. Let&apos;s create something amazing!
                     </p>
                   </div>
                 </motion.div>
@@ -560,7 +560,7 @@ export default function ChatComponent() {
                   <div className="relative z-10 flex items-center gap-2">
                     <Sparkles className="h-4 w-4" />
                     <span className="text-sm font-medium whitespace-nowrap">
-                      Generate Image
+                      Generate
                     </span>
                   </div>
                   <div className="absolute inset-0 bg-gradient-to-r from-pink-400/0 via-pink-400/30 to-pink-400/0 opacity-0 group-hover:opacity-100 blur-sm transition-opacity" />
