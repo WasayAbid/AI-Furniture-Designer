@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Send,
   Loader2,
   Lightbulb,
   AlertTriangle,
   Maximize2,
-  X, // Import the X icon (or Trash2, etc.)
+  Trash2,
+  Send,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,12 +21,18 @@ import { saveChatMessage, getChatHistory } from "@/lib/supabase/queries";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import type { Database } from "@/lib/supabase/database.types";
 import { uploadImage } from "@/lib/supabase/storage";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface Message {
   role: "user" | "assistant" | "system";
   content: string;
   image?: string;
-  timestamp?: number; // Add a timestamp to each message
+  timestamp?: number;
 }
 
 const INITIAL_MESSAGES: Message[] = [
@@ -33,7 +40,7 @@ const INITIAL_MESSAGES: Message[] = [
     role: "system",
     content:
       "You are an expert furniture designer specializing in minimalist, functional designs. Focus on clean lines, premium materials, and perfect lighting in your image generations.",
-    timestamp: Date.now(), //  Add timestamp
+    timestamp: Date.now(),
   },
 ];
 
@@ -59,7 +66,7 @@ const PRESET_PROMPTS = [
   {
     title: "Study Desk",
     prompt:
-      "Create a minimalist study desk with clean cable management and ergonomic design. Natural light should showcase the premium materials and thoughtful details.",
+      "Design a minimalist study desk featuring built-in cable management and ergonomic features, with sleek pull-out drawers and overhead cabinets in warm walnut wood. Position near a window where natural light emphasizes the grain patterns and brass hardware.",
     icon: "📚",
   },
 ];
@@ -67,14 +74,12 @@ const PRESET_PROMPTS = [
 const COOKIE_NAME = "chat_history";
 const COOKIE_EXPIRATION_DAYS = 15;
 
-// Helper function to set a cookie
 function setCookie(name: string, value: string, days: number) {
   const expires = new Date();
   expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
   document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Strict`;
 }
 
-// Helper function to get a cookie
 function getCookie(name: string): string | null {
   const nameEQ = name + "=";
   const ca = document.cookie.split(";");
@@ -86,12 +91,41 @@ function getCookie(name: string): string | null {
   return null;
 }
 
-// Helper to remove messages older than the expiration
 const filterOldMessages = (messages: Message[]): Message[] => {
   const cutoff = Date.now() - COOKIE_EXPIRATION_DAYS * 24 * 60 * 60 * 1000;
   return messages.filter(
     (message) => message.timestamp && message.timestamp >= cutoff
   );
+};
+
+const containsFurnitureKeywords = (text: string): boolean => {
+  const furnitureKeywords = [
+    "furniture",
+    "chair",
+    "table",
+    "sofa",
+    "couch",
+    "bed",
+    "desk",
+    "cabinet",
+    "wardrobe",
+    "shelf",
+    "shelves",
+    "dresser",
+    "cupboard",
+    "ottoman",
+    "stool",
+    "bench",
+    "lamp",
+    "lighting",
+    "decor",
+    "interior",
+    "design",
+    "drawers",
+    "mirror",
+  ];
+  const lowerCaseText = text.toLowerCase();
+  return furnitureKeywords.some((keyword) => lowerCaseText.includes(keyword));
 };
 
 export default function ChatComponent() {
@@ -101,20 +135,18 @@ export default function ChatComponent() {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
   const supabase = createClientComponentClient<Database>();
 
   const handleClearChat = () => {
-    setCookie(COOKIE_NAME, "", 0); // Delete the cookie
-    setMessages(INITIAL_MESSAGES); // Reset messages to initial state
+    setCookie(COOKIE_NAME, "", 0);
+    setMessages(INITIAL_MESSAGES);
     toast.success("Chat history cleared!");
   };
 
   useEffect(() => {
     setIsClient(true);
-    loadChatHistoryFromCookie(); // Load from cookie FIRST
-    loadChatHistory(); // Then load from Supabase (for older messages, if you want)
+    loadChatHistoryFromCookie();
+    loadChatHistory();
   }, []);
 
   const loadChatHistoryFromCookie = () => {
@@ -122,55 +154,41 @@ export default function ChatComponent() {
     if (cookieValue) {
       try {
         const parsedMessages = JSON.parse(decodeURIComponent(cookieValue));
-        // Filter out messages older than 15 days
         const recentMessages = filterOldMessages(parsedMessages);
         setMessages((prevMessages) => {
-          // Combine cookie messages with initial messages, ensuring no duplicates
           const allMessages = [...INITIAL_MESSAGES, ...recentMessages];
           const uniqueMessages = Array.from(
             new Map(allMessages.map((item) => [item.content, item])).values()
-          ); // Simple deduplication
+          );
           return uniqueMessages;
         });
       } catch (error) {
         console.error("Error parsing chat history from cookie:", error);
-        // Handle the error, e.g., clear the corrupted cookie
-        setCookie(COOKIE_NAME, "", 0); // Remove the cookie
+        setCookie(COOKIE_NAME, "", 0);
       }
     }
   };
 
   const loadChatHistory = async () => {
-    //Kept for option to have more chat history from database
+    // Kept for the option to have more chat history from the database
   };
 
   const saveChatHistoryToCookie = (updatedMessages: Message[]) => {
-    // Filter out messages older than 15 days before saving.
     const recentMessages = filterOldMessages(updatedMessages);
     const cookieValue = encodeURIComponent(JSON.stringify(recentMessages));
     setCookie(COOKIE_NAME, cookieValue, COOKIE_EXPIRATION_DAYS);
   };
 
-  const handleSubmit = async (e: React.FormEvent, customPrompt?: string) => {
-    e.preventDefault();
-    if (!input.trim() && !customPrompt) return;
-
-    const userMessage = customPrompt || input;
+  const handleSubmit = async (userMessage: string, type: string) => {
     setInput("");
 
-    // Add user message to UI immediately
     const newUserMessage: Message = {
       role: "user",
       content: userMessage,
       timestamp: Date.now(),
     };
-    setMessages((prev) => {
-      const updatedMessages = [...prev, newUserMessage];
-      saveChatHistoryToCookie(updatedMessages);
-      return updatedMessages;
-    });
+    setMessages((prev) => [...prev, newUserMessage]);
 
-    // Save user message to database
     try {
       await saveChatMessage(userMessage, "user");
     } catch (error) {
@@ -179,68 +197,121 @@ export default function ChatComponent() {
 
     setIsLoading(true);
 
-    const shouldGenerateImage =
-      userMessage.toLowerCase().includes("generate") ||
-      userMessage.toLowerCase().includes("create") ||
-      userMessage.toLowerCase().includes("show") ||
-      userMessage.toLowerCase().includes("visualize");
+    let shouldGenerateImage = type === "generate";
 
-    setIsGeneratingImage(shouldGenerateImage);
+    if (shouldGenerateImage) {
+      if (containsFurnitureKeywords(userMessage)) {
+        setIsGeneratingImage(true);
 
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: messages.filter((m) => m.role !== "system"), // Don't send the system message to the API
-          userMessage,
-          shouldGenerateImage,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to get response");
-      }
-
-      const data = await response.json();
-      const { response: assistantResponse, imageUrl } = data;
-
-      // Upload image to Supabase Storage if one was generated
-      let storedImageUrl = imageUrl;
-      if (imageUrl) {
         try {
-          storedImageUrl = await uploadImage(imageUrl, "chat");
-        } catch (error) {
-          console.error("Error uploading image:", error);
+          const response = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              messages: messages.filter((m) => m.role !== "system"),
+              userMessage,
+              shouldGenerateImage: true,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || "Failed to get response");
+          }
+
+          const data = await response.json();
+          const { response: assistantResponse, imageUrl } = data;
+
+          let storedImageUrl = imageUrl;
+          if (imageUrl) {
+            try {
+              storedImageUrl = await uploadImage(imageUrl, "chat");
+            } catch (error) {
+              console.error("Error uploading image:", error);
+            }
+          }
+
+          try {
+            await saveChatMessage(
+              assistantResponse,
+              "assistant",
+              storedImageUrl
+            );
+          } catch (error) {
+            console.error("Error saving assistant message:", error);
+          }
+
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              content: assistantResponse,
+              image: storedImageUrl,
+              timestamp: Date.now(),
+            },
+          ]);
+          saveChatHistoryToCookie(messages);
+        } catch (error: any) {
+          console.error("Error:", error);
+          toast.error(error.message || "Failed to get response");
+        } finally {
+          setIsLoading(false);
+          setIsGeneratingImage(false);
         }
+      } else {
+        setIsLoading(false);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content:
+              "I can only generate images related to furniture design. Please provide a description of furniture you'd like me to visualize.",
+            timestamp: Date.now(),
+          },
+        ]);
+        saveChatHistoryToCookie(messages);
       }
-
-      // Save assistant message to database
+    } else {
       try {
-        await saveChatMessage(assistantResponse, "assistant", storedImageUrl);
-      } catch (error) {
-        console.error("Error saving assistant message:", error);
-      }
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: messages.filter((m) => m.role !== "system"),
+            userMessage,
+            shouldGenerateImage: false,
+          }),
+        });
 
-      // Update UI
-      setMessages((prev) => {
-        const newAssistantMessage: Message = {
-          role: "assistant",
-          content: assistantResponse,
-          image: storedImageUrl,
-          timestamp: Date.now(),
-        };
-        const updatedMessages = [...prev, newAssistantMessage];
-        saveChatHistoryToCookie(updatedMessages); // Save to cookie after assistant response
-        return updatedMessages;
-      });
-    } catch (error: any) {
-      console.error("Error:", error);
-      toast.error(error.message || "Failed to get response");
-    } finally {
-      setIsLoading(false);
-      setIsGeneratingImage(false);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to get response");
+        }
+
+        const data = await response.json();
+        const { response: assistantResponse } = data;
+
+        try {
+          await saveChatMessage(assistantResponse, "assistant");
+        } catch (error) {
+          console.error("Error saving assistant message:", error);
+        }
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: assistantResponse,
+            timestamp: Date.now(),
+          },
+        ]);
+        saveChatHistoryToCookie(messages);
+      } catch (error: any) {
+        console.error("Error:", error);
+        toast.error(error.message || "Failed to get response");
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -248,7 +319,6 @@ export default function ChatComponent() {
     setEnlargedImage(imageUrl);
   };
 
-  // ... rest of your component remains largely the same, just use the updated messages ...
   return (
     <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 relative overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -280,10 +350,8 @@ export default function ChatComponent() {
                   Instructions & Disclaimer
                 </h3>
                 <p className="text-zinc-300 text-sm">
-                  All designs are AI-generated and may vary from expectations.
-                  Use keywords like &quot;generate&quot;, &quot;create&quot;,
-                  &quot;visualize&quot;, &quot;render&quot; to visualize your
-                  idea.
+                  Press <b>Generate</b> to generate an image. All designs are
+                  AI-generated and may vary from expectations.
                 </p>
               </div>
             </div>
@@ -292,42 +360,34 @@ export default function ChatComponent() {
 
         <div className="bg-gradient-to-br from-zinc-800/50 to-zinc-900/50 backdrop-blur-sm rounded-xl shadow-lg border border-pink-500/10 flex-1 flex flex-col">
           <ScrollArea className="flex-1 p-4 relative">
-            {/* Clear Chat Button (Moved inside ScrollArea) */}
-            <Button
-              onClick={handleClearChat}
-              className="absolute bottom-2 left-2 bg-gradient-to-r from-pink-600 to-pink-500 hover:from-pink-500 hover:to-pink-400 text-white text-xs"
-            >
-              Clear Chat
-            </Button>
             <div className="space-y-4">
+              {/* Preset Prompts */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-                {PRESET_PROMPTS.map(
-                  (preset, index) =>
-                    isClient && (
-                      <motion.button
-                        key={preset.title}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{
-                          opacity: 1,
-                          y: 0,
-                          transition: { delay: index * 0.1 },
-                        }}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={(e) => handleSubmit(e, preset.prompt)}
-                        className="p-3 bg-gradient-to-br from-zinc-800 to-zinc-900 rounded-lg border border-pink-500/10 hover:border-pink-500/20 transition-all text-left group"
-                      >
-                        <div className="flex flex-col items-center gap-1">
-                          <span className="text-2xl">{preset.icon}</span>
-                          <h3 className="font-medium text-white text-sm group-hover:text-pink-300 transition-colors">
-                            {preset.title}
-                          </h3>
-                        </div>
-                      </motion.button>
-                    )
-                )}
+                {PRESET_PROMPTS.map((preset, index) => (
+                  <motion.button
+                    key={preset.title}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{
+                      opacity: 1,
+                      y: 0,
+                      transition: { delay: index * 0.1 },
+                    }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleSubmit(preset.prompt, "generate")}
+                    className="p-3 bg-gradient-to-br from-zinc-800 to-zinc-900 rounded-lg border border-pink-500/10 hover:border-pink-500/20 transition-all text-left group"
+                  >
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-2xl">{preset.icon}</span>
+                      <h3 className="font-medium text-white text-sm group-hover:text-pink-300 transition-colors">
+                        {preset.title}
+                      </h3>
+                    </div>
+                  </motion.button>
+                ))}
               </div>
 
+              {/* Initial Message */}
               {isClient && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -343,52 +403,49 @@ export default function ChatComponent() {
                 </motion.div>
               )}
 
+              {/* Chat Messages */}
               {messages
                 .filter((m) => m.role !== "system")
-                .map(
-                  (message, index) =>
-                    isClient && (
-                      <motion.div
-                        key={index}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={`flex ${
-                          message.role === "user"
-                            ? "justify-end"
-                            : "justify-start"
-                        }`}
-                      >
-                        <div
-                          className={`max-w-[100%] rounded-xl p-4 ${
-                            message.role === "user"
-                              ? "bg-gradient-to-r from-pink-600 to-pink-500 text-white ml-4"
-                              : "bg-gradient-to-br from-zinc-800 to-zinc-900 border border-pink-500/10 text-white mr-4"
-                          }`}
-                        >
-                          <div className="prose prose-invert max-w-none">
-                            <ReactMarkdown>{message.content}</ReactMarkdown>
-                          </div>
-                          {message.image && (
-                            <div className="relative mt-4 group">
-                              <img
-                                src={message.image}
-                                alt="Generated furniture design"
-                                className="rounded-lg max-w-full cursor-pointer transition-transform hover:scale-[1.02]"
-                                onClick={() => handleImageClick(message.image!)}
-                              />
-                              <button
-                                onClick={() => handleImageClick(message.image!)}
-                                className="absolute top-2 right-2 p-2 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                <Maximize2 className="h-4 w-4 text-white" />
-                              </button>
-                            </div>
-                          )}
+                .map((message, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`flex ${
+                      message.role === "user" ? "justify-end" : "justify-start"
+                    }`}
+                  >
+                    <div
+                      className={`max-w-[100%] rounded-xl p-4 ${
+                        message.role === "user"
+                          ? "bg-gradient-to-r from-pink-600 to-pink-500 text-white ml-4"
+                          : "bg-gradient-to-br from-zinc-800 to-zinc-900 border border-pink-500/10 text-white mr-4"
+                      }`}
+                    >
+                      <div className="prose prose-invert max-w-none">
+                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                      </div>
+                      {message.image && (
+                        <div className="relative mt-4 group">
+                          <img
+                            src={message.image}
+                            alt="Generated furniture design"
+                            className="rounded-lg max-w-full cursor-pointer transition-transform hover:scale-[1.02]"
+                            onClick={() => handleImageClick(message.image!)}
+                          />
+                          <button
+                            onClick={() => handleImageClick(message.image!)}
+                            className="absolute top-2 right-2 p-2 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Maximize2 className="h-4 w-4 text-white" />
+                          </button>
                         </div>
-                      </motion.div>
-                    )
-                )}
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
 
+              {/* Loading Indicator */}
               {isLoading && isClient && (
                 <motion.div
                   initial={{ opacity: 0 }}
@@ -432,24 +489,67 @@ export default function ChatComponent() {
           </ScrollArea>
 
           <form
-            onSubmit={handleSubmit}
-            className="p-4 border-t border-pink-500/10 relative" // Add relative positioning
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSubmit(input, "send");
+            }}
+            className="p-4 border-t border-pink-500/10 relative"
           >
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <motion.button
+                      onClick={handleClearChat}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="relative w-10 h-10 rounded-xl bg-zinc-800/80 border border-pink-500/20 hover:bg-pink-500/10 text-pink-400 flex items-center justify-center transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <div className="absolute inset-0 rounded-xl bg-pink-500/5 opacity-0 hover:opacity-100 transition-opacity" />
+                    </motion.button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">Clear Chat</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Describe your furniture idea..."
                 disabled={isLoading}
-                className="bg-zinc-800/50 border-pink-500/20 text-white placeholder:text-zinc-400"
+                className="bg-zinc-800/50 border-pink-500/20 text-white placeholder:text-zinc-400 flex-1 h-10"
               />
-              <Button
+
+              <motion.button
                 type="submit"
                 disabled={isLoading}
-                className="bg-gradient-to-r from-pink-600 to-pink-500 hover:from-pink-500 hover:to-pink-400 text-white"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="relative h-10 px-4 rounded-xl bg-gradient-to-r from-pink-600 to-pink-500 text-white flex items-center justify-center overflow-hidden group"
               >
-                <Send className="h-4 w-4" />
-              </Button>
+                <div className="absolute inset-0 bg-gradient-to-r from-pink-500 to-pink-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Send className="h-4 w-4 relative z-10" />
+                <div className="absolute inset-0 bg-gradient-to-r from-pink-400/0 via-pink-400/30 to-pink-400/0 opacity-0 group-hover:opacity-100 blur-sm transition-opacity" />
+              </motion.button>
+
+              <motion.button
+                type="button"
+                onClick={() => handleSubmit(input, "generate")}
+                disabled={isLoading}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="relative h-10 px-6 rounded-xl bg-gradient-to-r from-pink-600 to-pink-500 text-white flex items-center justify-center overflow-hidden group"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-pink-500 to-pink-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="relative z-10 flex items-center">
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  <span className="text-sm font-medium">Generate</span>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-r from-pink-400/0 via-pink-400/30 to-pink-400/0 opacity-0 group-hover:opacity-100 blur-sm transition-opacity" />
+              </motion.button>
             </div>
           </form>
         </div>

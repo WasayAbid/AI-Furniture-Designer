@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, AlertTriangle } from "lucide-react"; // Import AlertTriangle
+import { Loader2, AlertTriangle, Sparkles } from "lucide-react"; // Import AlertTriangle
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { BedSizeSelector } from "@/components/wallbed/BedSizeSelector";
@@ -339,11 +339,14 @@ export function WallbedDesignerForm() {
           >
             {isGenerating ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating...
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                <span className="text-lg font-medium">Generating...</span>
               </>
             ) : (
-              "Generate Design"
+              <>
+                <Sparkles className="mr-2 h-5 w-5" />
+                <span className="text-lg font-medium">Generate Design</span>
+              </>
             )}
           </Button>
         </motion.div>
