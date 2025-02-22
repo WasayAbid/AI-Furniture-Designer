@@ -1,8 +1,9 @@
+// WallbedDesignerForm.js
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, AlertTriangle, Sparkles } from "lucide-react"; // Import AlertTriangle
+import { useState, useEffect, useCallback } from "react";
+import { motion } from "framer-motion";
+import { Loader2, AlertTriangle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { BedSizeSelector } from "@/components/wallbed/BedSizeSelector";
@@ -12,8 +13,7 @@ import { LightingSelector } from "@/components/wallbed/LightingSelector";
 import { StorageOptions } from "@/components/wallbed/StorageOptions";
 import { SofaOptions } from "@/components/wallbed/SofaOptions";
 import { DesignHistory } from "@/components/wallbed/DesignHistory";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { useRouter } from "next/navigation"; // Import useRouter
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface WallbedConfig {
   bedSize: string;
@@ -36,20 +36,18 @@ interface WallbedConfig {
   handleStyle: string;
   prompt?: string;
   imageUrl?: string;
-  timestamp?: number; // Add timestamp for history management
+  timestamp?: number;
 }
 
-const WALLBED_DESIGN_HISTORY = "wallbed_design_history"; // Unique cookie name
-const COOKIE_EXPIRATION_DAYS = 30; // Adjust as needed
+const WALLBED_DESIGN_HISTORY = "wallbed_design_history";
+const COOKIE_EXPIRATION_DAYS = 30;
 
-// Helper function to set a cookie
 function setCookie(name: string, value: string, days: number) {
   const expires = new Date();
   expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
   document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Strict`;
 }
 
-// Helper function to get a cookie
 function getCookie(name: string): string | null {
   const nameEQ = name + "=";
   const ca = document.cookie.split(";");
@@ -61,7 +59,6 @@ function getCookie(name: string): string | null {
   return null;
 }
 
-// Helper to remove designs older than the expiration
 const filterOldDesigns = (designs: WallbedConfig[]): WallbedConfig[] => {
   const cutoff = Date.now() - COOKIE_EXPIRATION_DAYS * 24 * 60 * 60 * 1000;
   return designs.filter(
@@ -69,7 +66,6 @@ const filterOldDesigns = (designs: WallbedConfig[]): WallbedConfig[] => {
   );
 };
 
-// Function to save image
 const saveImage = async (imageUrl: string | null) => {
   if (!imageUrl) {
     toast.error("No image to save.");
@@ -77,13 +73,10 @@ const saveImage = async (imageUrl: string | null) => {
   }
 
   try {
-    // Use the proxy API route
     const proxyUrl = `/api/proxy-image?imageUrl=${encodeURIComponent(
       imageUrl
     )}`;
-    const response = await fetch(proxyUrl, {
-      method: "GET",
-    });
+    const response = await fetch(proxyUrl, { method: "GET" });
 
     if (!response.ok) {
       console.error(
@@ -111,10 +104,9 @@ const saveImage = async (imageUrl: string | null) => {
     toast.error(`Failed to save image: ${error.message}`);
   }
 };
-export function WallbedDesignerForm() {
-  const router = useRouter(); // Initialize useRouter
-  const [isClient, setIsClient] = useState(false);
 
+export function WallbedDesignerForm() {
+  const [isClient, setIsClient] = useState(false);
   const [config, setConfig] = useState<WallbedConfig>({
     bedSize: "Queen",
     color: "Natural Oak",
@@ -137,9 +129,9 @@ export function WallbedDesignerForm() {
     prompt: "",
     imageUrl: "",
     timestamp: 0,
-  } as WallbedConfig);
+  });
 
-  const [history, setHistory] = useState<WallbedConfig[]>([]); // History from cookie
+  const [history, setHistory] = useState<WallbedConfig[]>([]);
   const [selectedHistoryItem, setSelectedHistoryItem] =
     useState<WallbedConfig | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -147,44 +139,57 @@ export function WallbedDesignerForm() {
   const [error, setError] = useState<string | null>(null);
   const [enlargedImageUrl, setEnlargedImageUrl] = useState<string | null>(null);
 
+  // Log history length when component mounts and when history changes.
+  useEffect(() => {
+    console.log(
+      "WallbedDesignerForm mounted/re-rendered. history.length:",
+      history.length
+    );
+
+    // *Crucially*, log when the component *unmounts*.  This is important.
+    return () => {
+      console.log(
+        "WallbedDesignerForm unmounted. history.length:",
+        history.length
+      );
+    };
+  }, [history]);
+
   useEffect(() => {
     setIsClient(true);
-    loadDesignHistoryFromCookie(); // Load history from cookie on mount
+    loadDesignHistoryFromCookie();
   }, []);
 
   const loadDesignHistoryFromCookie = () => {
-    const cookieValue = getCookie(WALLBED_DESIGN_HISTORY);
-    if (cookieValue) {
-      try {
+    try {
+      const cookieValue = getCookie(WALLBED_DESIGN_HISTORY);
+      if (cookieValue) {
         const parsedHistory = JSON.parse(decodeURIComponent(cookieValue));
-        const recentHistory = filterOldDesigns(parsedHistory); // Filter old designs
+        const recentHistory = filterOldDesigns(parsedHistory);
         setHistory(recentHistory);
-      } catch (error) {
-        console.error("Error parsing design history from cookie:", error);
-        // Clear corrupted cookie if necessary
-        setCookie(WALLBED_DESIGN_HISTORY, "", 0);
       }
+    } catch (error) {
+      console.error("Error parsing design history from cookie:", error);
+      console.trace();
+      setCookie(WALLBED_DESIGN_HISTORY, "", 0);
+      toast.error("Error loading design history. History cleared.");
     }
   };
 
   const saveDesignHistoryToCookie = (updatedHistory: WallbedConfig[]) => {
-    const recentHistory = filterOldDesigns(updatedHistory); // Filter before saving
-    const cookieValue = encodeURIComponent(JSON.stringify(recentHistory));
-    setCookie(WALLBED_DESIGN_HISTORY, cookieValue, COOKIE_EXPIRATION_DAYS);
+    try {
+      const recentHistory = filterOldDesigns(updatedHistory);
+      const cookieValue = encodeURIComponent(JSON.stringify(recentHistory));
+      setCookie(WALLBED_DESIGN_HISTORY, cookieValue, COOKIE_EXPIRATION_DAYS);
+    } catch (error) {
+      console.error("Error saving design history to cookie:", error);
+      toast.error("Error saving design history.");
+    }
   };
 
-  useEffect(() => {
-    generatePrompt();
-  }, [config]);
-
-  const handleConfigChange = (updates: Partial<WallbedConfig>) => {
-    setConfig((prev) => ({ ...prev, ...updates }));
-  };
-
-  const generatePrompt = () => {
+  const generatePrompt = useCallback(() => {
     let prompt = `Generate an exceptionally realistic, ultra-high-definition image of a Murphy wallbed unit (foldable murphy wallbed), seamlessly integrated into a modern, minimalist interior. The design should emphasize clean lines, geometric paneling, and a sophisticated, clutter-free aesthetic. This must be a Murphy wallbed with a floating bed design, giving it an airy and contemporary feel. The image should always include a window from which natural light is casting directly onto the Murphy wallbed, creating a warm and inviting atmosphere.`;
 
-    // ... rest of your prompt generation logic ...
     if (config.bedSize) {
       prompt += ` The Murphy wallbed features a comfortable, floating and foldable ${config.bedSize} sized bed, designed to blend seamlessly into the wall unit and appear suspended above the floor.`;
     }
@@ -198,7 +203,7 @@ export function WallbedDesignerForm() {
     }
 
     if (config.hasCupboard) {
-      prompt += ` The Murphy wallbed unit includes precisely aligned, built-in cupboards, maintaining a consistent panel design.`;
+      prompt += ` The Murphy wallbed unit includes precisely aligned, built-in cupboards, maintaining aa consistent panel design.`;
       if (typeof config.cupboardCount === "number") {
         prompt += ` There must be exactly ${config.cupboardCount} equally sized cupboards, perfectly integrated into the overall design of the Murphy wallbed.`;
       } else {
@@ -215,14 +220,30 @@ export function WallbedDesignerForm() {
       prompt += ` Include a minimalist, ${config.dressingTableStyle} style dressing table integrated on the ${config.dressingTableSide} side of the Murphy wallbed, accompanied by exactly ${config.dressingTableCabinets} built-in cabinets that follow the overall design principles.`;
     }
 
-    prompt += ` only follow the given instructions, only same location cabinets if needed, only same amount cabinets if needed, only same location cupboard if needed, foldable bed, no base of bed, temperature = 0, bright room, fully lit room, sun light shining on the bed, floating bed, floating bed, murphy bed, murphy, murphy wall bed, wallbed, wall bed, 8k picture, 8k picture, realistic picture, realistic picture, lively environment, lively environment, welcoming picture, natural sunlight, The Murphy wallbed should be situated in a spacious, well-lit room with high-end finishes, featuring neutral-toned walls, hardwood flooring, and subtle, inviting decor elements. The room must always include a window positioned to allow natural light to cascade directly onto the Murphy wallbed, creating a warm and realistic atmosphere. The rendering should emphasize impeccable detail, clean lines, balanced proportions, and a sense of refined elegance. The overall impression should be a blend of functionality, sophistication, and a touch of modern luxury, with the floating bed adding to its unique appeal. Focus on photorealistic details, including soft, natural shadows, realistic material textures, accurate reflections, and a believable lighting balance between natural and artificial light, making the scene feel inviting and cozy.`;
+    prompt += ` only follow the given instructions, only same location cabinets if needed, only same amount cabinets if needed, only same location cupboard if needed, foldable bed, no base of bed, temperature = 0, bright room, fully lit room, sun light shining on the bed, floating bed, floating bed, murphy bed, murphy, murphy wall bed, wallbed, wall bed, 8k picture, 8k picture, realistic picture, realistic picture, lively environment, lively environment, welcoming picture, natural sunlight, The Murphy wallbed should be situated in a spacious, well-lit room with high-end finishes, featuring neutral-toned walls, hardwood flooring, and subtle, inviting decor elements. The room must always include a window positioned to allow natural light to cascade directly onto the Murphy wallbed, creating a warm and realistic atmosphere. The rendering should emphasize impeccable detail, clean lines, balanced proportions, and a sense of elegance. The overall impression should be a blend of functionality, sophistication, and a touch of modern luxury, with the floating bed adding to its unique appeal. Focus on photorealistic details, including soft, natural shadows, realistic material textures, accurate reflections, and a believable lighting balance between natural and artificial light, making the
+
+    overall scene feel inviting and cozy.`;
 
     setConfig((prev) => ({ ...prev, prompt: prompt }));
-  };
+  }, [config]);
+
+  const handleConfigChange = useCallback((updates: Partial<WallbedConfig>) => {
+    setConfig((prev) => ({ ...prev, ...updates }));
+  }, []);
+
+  useEffect(() => {
+    generatePrompt();
+  }, [config, generatePrompt]);
 
   const handleGenerateImage = async () => {
     setIsGenerating(true);
     setError(null);
+    const initialHistoryLength = history.length; // Capture history length BEFORE
+    console.log(
+      "handleGenerateImage - BEFORE API call, history.length:",
+      initialHistoryLength
+    );
+
     try {
       const response = await fetch("/api/generate", {
         method: "POST",
@@ -236,50 +257,78 @@ export function WallbedDesignerForm() {
       }
 
       const data = await response.json();
-      const storedImageUrl = data.imageUrl; // Directly use imageUrl from response
+      const storedImageUrl = data.imageUrl;
 
       setCurrentImageUrl(storedImageUrl);
 
-      // Save design to cookie history
       const newHistoryItem: WallbedConfig = {
         ...config,
         imageUrl: storedImageUrl,
         timestamp: Date.now(),
       };
-      setHistory((prev) => [...prev.slice(-2), newHistoryItem]); // Keep last 3 designs in history
-      saveDesignHistoryToCookie([...history.slice(-2), newHistoryItem]); // Save to cookie
+      setHistory((prev) => [...prev.slice(-2), newHistoryItem]);
+      saveDesignHistoryToCookie([...history.slice(-2), newHistoryItem]);
       toast.success("Design saved to history!");
+
+      console.log(
+        "handleGenerateImage - AFTER API call, history.length:",
+        history.length
+      );
     } catch (error: any) {
       console.error("Error generating image:", error);
       setError(error.message || "Failed to generate design");
       toast.error(error.message || "Failed to generate design");
     } finally {
       setIsGenerating(false);
+      console.log(
+        "handleGenerateImage - AFTER completion, history.length:",
+        history.length
+      );
     }
   };
 
   const handleLoadDesign = (design: WallbedConfig) => {
+    console.log("handleLoadDesign called. Design:", design);
     setConfig(design);
     setCurrentImageUrl(design.imageUrl || null);
+    console.log("handleLoadDesign AFTER, history length", history.length);
   };
 
   const handleEnlargeImage = (url: string) => {
     setEnlargedImageUrl(url);
+    console.log("handleEnlargeImage AFTER, history length", history.length);
   };
 
   const handleCloseEnlargeImage = () => {
     setEnlargedImageUrl(null);
+    console.log(
+      "handleCloseEnlargeImage AFTER, history length",
+      history.length
+    );
+  };
+
+  // Added logging to all the selector onChange handlers
+  const handleBedSizeChange = (value: string) => {
+    handleConfigChange({ bedSize: value });
+    console.log("Bed Size Changed. history.length:", history.length);
+  };
+
+  const handleMaterialChange = (value: string) => {
+    handleConfigChange({ material: value });
+    console.log("Material Changed. history.length:", history.length);
+  };
+
+  const handleLightingChange = (value: string) => {
+    handleConfigChange({ lighting: value });
+    console.log("Lighting Changed. history.length:", history.length);
+  };
+  const handleStorageChange = (value: string) => {
+    handleConfigChange({ hasCupboard: value });
+    console.log("Storage Changed. history.length:", history.length);
   };
 
   return (
     <div className="max-w-7xl mx-auto">
-      <Button
-        onClick={() => router.back()}
-        className="bg-gradient-to-r from-pink-600 to-pink-500 hover:from-pink-500 hover:to-pink-400 text-white"
-      >
-        Go Back
-      </Button>
-
       <motion.h1
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -320,16 +369,16 @@ export function WallbedDesignerForm() {
           <div className="space-y-4">
             <BedSizeSelector
               value={config.bedSize}
-              onChange={(value) => handleConfigChange({ bedSize: value })}
+              onChange={handleBedSizeChange}
             />
             <MaterialSelector
               value={config.material}
-              onChange={(value) => handleConfigChange({ material: value })}
+              onChange={handleMaterialChange}
             />
-            <StorageOptions config={config} onChange={handleConfigChange} />
+            <StorageOptions config={config} onChange={handleStorageChange} />
             <LightingSelector
               value={config.lighting}
-              onChange={(value) => handleConfigChange({ lighting: value })}
+              onChange={handleLightingChange}
             />
           </div>
           <Button
@@ -380,7 +429,7 @@ export function WallbedDesignerForm() {
 
       <div className="mt-8">
         <DesignHistory
-          history={history} // Pass history state to DesignHistory
+          history={history}
           selectedHistoryItem={selectedHistoryItem}
           onSelectHistoryItem={setSelectedHistoryItem}
           onLoadDesign={handleLoadDesign}
