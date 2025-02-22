@@ -41,22 +41,6 @@ export default function AboutPage() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-gradient-to-br from-zinc-800/50 to-zinc-900/50 backdrop-blur-sm rounded-xl p-8 border border-pink-500/10"
-            >
-              <h2 className="text-2xl font-bold text-white mb-4">Our Story</h2>
-              <p className="text-zinc-300 leading-relaxed">
-                Founded in 2025, Murphy Al-Saham emerged from a vision to
-                transform the furniture industry through cutting-edge AI
-                technology. Our journey began with a simple idea: make custom
-                furniture design accessible to everyone while maximizing space
-                efficiency in modern homes.
-              </p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
               className="bg-gradient-to-br from-zinc-800/50 to-zinc-900/50 backdrop-blur-sm rounded-xl p-8 border border-pink-500/10"
             >
@@ -106,9 +90,9 @@ export default function AboutPage() {
                 opportunities, our team is here to help.
               </p>
               <div className="mt-4 text-zinc-300">
-                <p>Email: contact@murphyalsaham.com</p>
-                <p>Phone: +1 (555) 123-4567</p>
-                <p>Address: 123 Innovation Drive, Tech Valley, CA 94025</p>
+                <p>Email: notifications@wallbedz.com</p>
+                <p>Phone: 00971-50-800-5373</p>
+                <p>Address: Silicon Oasis, Dubai – United Arab Emirates</p>
               </div>
             </motion.div>
           </div>
