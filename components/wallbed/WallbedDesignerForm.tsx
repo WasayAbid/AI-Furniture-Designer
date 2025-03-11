@@ -13,7 +13,7 @@ import { StorageOptions } from "@/components/wallbed/StorageOptions";
 import { SofaOptions } from "@/components/wallbed/SofaOptions";
 import { DesignHistory } from "@/components/wallbed/DesignHistory";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { useRouter } from "next/navigation"; // Import useRouter
+// import { useRouter } from "next/navigation"; // Removed useRouter import
 
 interface WallbedConfig {
   bedSize: string;
@@ -112,7 +112,7 @@ const saveImage = async (imageUrl: string | null) => {
   }
 };
 export function WallbedDesignerForm() {
-  const router = useRouter(); // Initialize useRouter
+  // const router = useRouter(); // Removed useRouter initialization
   const [isClient, setIsClient] = useState(false);
 
   const [config, setConfig] = useState<WallbedConfig>({
@@ -184,7 +184,6 @@ export function WallbedDesignerForm() {
   const generatePrompt = () => {
     let prompt = `Generate an exceptionally realistic, ultra-high-definition image of a Murphy wallbed unit (foldable murphy wallbed), seamlessly integrated into a modern, minimalist interior. The design should emphasize clean lines, geometric paneling, and a sophisticated, clutter-free aesthetic. This must be a Murphy wallbed with a floating bed design, giving it an airy and contemporary feel. The image should always include a window from which natural light is casting directly onto the Murphy wallbed, creating a warm and inviting atmosphere.`;
 
-    // ... rest of your prompt generation logic ...
     if (config.bedSize) {
       prompt += ` The Murphy wallbed features a comfortable, floating and foldable ${config.bedSize} sized bed, designed to blend seamlessly into the wall unit and appear suspended above the floor.`;
     }
@@ -273,12 +272,7 @@ export function WallbedDesignerForm() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <Button
-        onClick={() => router.back()}
-        className="bg-gradient-to-r from-pink-600 to-pink-500 hover:from-pink-500 hover:to-pink-400 text-white"
-      >
-        Go Back
-      </Button>
+
 
       <motion.h1
         initial={{ opacity: 0, y: -20 }}
