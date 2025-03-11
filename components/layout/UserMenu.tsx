@@ -1,4 +1,3 @@
-// components/layout/UserMenu.tsx  <-- Note the updated file path
 "use client";
 
 import { useState, useEffect } from "react";

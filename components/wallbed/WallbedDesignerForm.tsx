@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, AlertTriangle, Sparkles } from "lucide-react"; // Import AlertTriangle
+import { Loader2, AlertTriangle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { BedSizeSelector } from "@/components/wallbed/BedSizeSelector";
@@ -13,7 +13,6 @@ import { StorageOptions } from "@/components/wallbed/StorageOptions";
 import { SofaOptions } from "@/components/wallbed/SofaOptions";
 import { DesignHistory } from "@/components/wallbed/DesignHistory";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-// import { useRouter } from "next/navigation"; // Removed useRouter import
 
 interface WallbedConfig {
   bedSize: string;
@@ -36,20 +35,18 @@ interface WallbedConfig {
   handleStyle: string;
   prompt?: string;
   imageUrl?: string;
-  timestamp?: number; // Add timestamp for history management
+  timestamp?: number;
 }
 
-const WALLBED_DESIGN_HISTORY = "wallbed_design_history"; // Unique cookie name
-const COOKIE_EXPIRATION_DAYS = 30; // Adjust as needed
+const WALLBED_DESIGN_HISTORY = "wallbed_design_history";
+const COOKIE_EXPIRATION_DAYS = 30;
 
-// Helper function to set a cookie
 function setCookie(name: string, value: string, days: number) {
   const expires = new Date();
   expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
   document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Strict`;
 }
 
-// Helper function to get a cookie
 function getCookie(name: string): string | null {
   const nameEQ = name + "=";
   const ca = document.cookie.split(";");
@@ -61,7 +58,6 @@ function getCookie(name: string): string | null {
   return null;
 }
 
-// Helper to remove designs older than the expiration
 const filterOldDesigns = (designs: WallbedConfig[]): WallbedConfig[] => {
   const cutoff = Date.now() - COOKIE_EXPIRATION_DAYS * 24 * 60 * 60 * 1000;
   return designs.filter(
@@ -69,7 +65,6 @@ const filterOldDesigns = (designs: WallbedConfig[]): WallbedConfig[] => {
   );
 };
 
-// Function to save image
 const saveImage = async (imageUrl: string | null) => {
   if (!imageUrl) {
     toast.error("No image to save.");
@@ -77,7 +72,6 @@ const saveImage = async (imageUrl: string | null) => {
   }
 
   try {
-    // Use the proxy API route
     const proxyUrl = `/api/proxy-image?imageUrl=${encodeURIComponent(
       imageUrl
     )}`;
@@ -111,10 +105,9 @@ const saveImage = async (imageUrl: string | null) => {
     toast.error(`Failed to save image: ${error.message}`);
   }
 };
-export function WallbedDesignerForm() {
-  // const router = useRouter(); // Removed useRouter initialization
-  const [isClient, setIsClient] = useState(false);
 
+export function WallbedDesignerForm() {
+  const [isClient, setIsClient] = useState(false);
   const [config, setConfig] = useState<WallbedConfig>({
     bedSize: "Queen",
     color: "Natural Oak",
@@ -138,44 +131,55 @@ export function WallbedDesignerForm() {
     imageUrl: "",
     timestamp: 0,
   } as WallbedConfig);
-
-  const [history, setHistory] = useState<WallbedConfig[]>([]); // History from cookie
+  const [history, setHistory] = useState<WallbedConfig[]>([]);
   const [selectedHistoryItem, setSelectedHistoryItem] =
     useState<WallbedConfig | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [enlargedImageUrl, setEnlargedImageUrl] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null); // Timer state
 
   useEffect(() => {
     setIsClient(true);
-    loadDesignHistoryFromCookie(); // Load history from cookie on mount
+    loadDesignHistoryFromCookie();
   }, []);
+
+  useEffect(() => {
+    if (countdown === 0) {
+      setCountdown(null); // Reset countdown when it reaches 0
+    }
+    if (countdown != null && countdown > 0) {
+      const timer = setInterval(() => {
+        setCountdown((prev) => (prev !== null && prev > 0 ? prev - 1 : null));
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [countdown]);
+
+  useEffect(() => {
+    generatePrompt();
+  }, [config]);
 
   const loadDesignHistoryFromCookie = () => {
     const cookieValue = getCookie(WALLBED_DESIGN_HISTORY);
     if (cookieValue) {
       try {
         const parsedHistory = JSON.parse(decodeURIComponent(cookieValue));
-        const recentHistory = filterOldDesigns(parsedHistory); // Filter old designs
+        const recentHistory = filterOldDesigns(parsedHistory);
         setHistory(recentHistory);
       } catch (error) {
         console.error("Error parsing design history from cookie:", error);
-        // Clear corrupted cookie if necessary
         setCookie(WALLBED_DESIGN_HISTORY, "", 0);
       }
     }
   };
 
   const saveDesignHistoryToCookie = (updatedHistory: WallbedConfig[]) => {
-    const recentHistory = filterOldDesigns(updatedHistory); // Filter before saving
+    const recentHistory = filterOldDesigns(updatedHistory);
     const cookieValue = encodeURIComponent(JSON.stringify(recentHistory));
     setCookie(WALLBED_DESIGN_HISTORY, cookieValue, COOKIE_EXPIRATION_DAYS);
   };
-
-  useEffect(() => {
-    generatePrompt();
-  }, [config]);
 
   const handleConfigChange = (updates: Partial<WallbedConfig>) => {
     setConfig((prev) => ({ ...prev, ...updates }));
@@ -222,6 +226,7 @@ export function WallbedDesignerForm() {
   const handleGenerateImage = async () => {
     setIsGenerating(true);
     setError(null);
+    setCountdown(25); // Start countdown timer
     try {
       const response = await fetch("/api/generate", {
         method: "POST",
@@ -235,18 +240,17 @@ export function WallbedDesignerForm() {
       }
 
       const data = await response.json();
-      const storedImageUrl = data.imageUrl; // Directly use imageUrl from response
+      const storedImageUrl = data.imageUrl;
 
       setCurrentImageUrl(storedImageUrl);
 
-      // Save design to cookie history
       const newHistoryItem: WallbedConfig = {
         ...config,
         imageUrl: storedImageUrl,
         timestamp: Date.now(),
       };
-      setHistory((prev) => [...prev.slice(-2), newHistoryItem]); // Keep last 3 designs in history
-      saveDesignHistoryToCookie([...history.slice(-2), newHistoryItem]); // Save to cookie
+      setHistory((prev) => [...prev.slice(-2), newHistoryItem]);
+      saveDesignHistoryToCookie([...history.slice(-2), newHistoryItem]);
       toast.success("Design saved to history!");
     } catch (error: any) {
       console.error("Error generating image:", error);
@@ -254,6 +258,7 @@ export function WallbedDesignerForm() {
       toast.error(error.message || "Failed to generate design");
     } finally {
       setIsGenerating(false);
+      setCountdown(null); // Stop countdown when generation is done or fails
     }
   };
 
@@ -272,8 +277,6 @@ export function WallbedDesignerForm() {
 
   return (
     <div className="max-w-7xl mx-auto">
-
-
       <motion.h1
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -329,13 +332,19 @@ export function WallbedDesignerForm() {
           <Button
             className="w-full bg-gradient-to-r from-pink-600 to-pink-500 hover:from-pink-500 hover:to-pink-400 text-white py-6 text-lg rounded-xl"
             onClick={handleGenerateImage}
-            disabled={isGenerating}
+            disabled={isGenerating || countdown !== null} // Disable when generating or countdown active
           >
-            {isGenerating ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                <span className="text-lg font-medium">Generating...</span>
-              </>
+            {isGenerating || countdown !== null ? ( // Show loader or countdown
+              countdown !== null ? (
+                <span className="text-lg font-medium">
+                  Generating... ({countdown}s)
+                </span>
+              ) : (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  <span className="text-lg font-medium">Generating...</span>
+                </>
+              )
             ) : (
               <>
                 <Sparkles className="mr-2 h-5 w-5" />
@@ -374,7 +383,7 @@ export function WallbedDesignerForm() {
 
       <div className="mt-8">
         <DesignHistory
-          history={history} // Pass history state to DesignHistory
+          history={history}
           selectedHistoryItem={selectedHistoryItem}
           onSelectHistoryItem={setSelectedHistoryItem}
           onLoadDesign={handleLoadDesign}

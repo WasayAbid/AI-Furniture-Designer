@@ -1,4 +1,4 @@
-// components/layout/Header.tsx  <-- Note the updated file path
+// components/layout/Header.js
 "use client";
 
 import { useState, useEffect } from "react";
@@ -32,6 +32,10 @@ export function Header() {
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
+  };
+
+  const closeMenu = () => {
+    setIsMenuOpen(false);
   };
 
   return (
@@ -91,6 +95,15 @@ export function Header() {
               transition={{ type: "spring", stiffness: 200, damping: 20 }}
               className="fixed top-0 right-0 h-screen bg-zinc-900/95 backdrop-blur-md z-[99] w-[280px] lg:hidden"
             >
+              {/* Close Button for Mobile Menu */}
+              <button
+                onClick={closeMenu}
+                className="absolute top-4 right-4 p-2 text-zinc-300 hover:text-white"
+                aria-label="Close menu"
+              >
+                <X className="h-6 w-6" />
+              </button>
+
               <div className="h-full flex flex-col px-4 py-8">
                 <div className="mb-8">
                   <motion.h2
@@ -106,7 +119,7 @@ export function Header() {
                 <div className="mt-auto">
                   <UserMenuContent
                     isMobileMenuOpen={isMenuOpen}
-                    onCloseMobileMenu={() => setIsMenuOpen(false)}
+                    onCloseMobileMenu={closeMenu} // Use the new closeMenu function
                   />{" "}
                   {/* UserMenuContent for mobile */}
                 </div>
